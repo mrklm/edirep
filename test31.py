@@ -2,8 +2,8 @@
 # -*- coding: utf-8 -*-
 """
                 Edirep — Éditeur de répertoire téléphonique
-
- Tkinter UI : import VCF, édition modale, prévisualisation, exports TXT/ODT/ODS.
+        Utilisation de Tkinter UI pour creer une interface graphique
+   fonctions: import VCF, édition modale, prévisualisation, exports TXT/ODT/ODS.
          Tri manuel des doublons, export livret PDF avec imposition.
  mode sombre, logo normal & logo inversé (crop configurable séparé pour clair/sombre).
                             klm novembre 2025
