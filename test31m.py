@@ -311,7 +311,7 @@ class LivretWindow(tk.Toplevel):
         self.contacts = contacts
         self.logo_path = logo_path
         self.logo_max_width = logo_max_width
-        self.geometry('620x520')
+      # self.geometry('620x520') # en enlevant la dimenssion de la fenetre, elle est calculée automatiquement
         self.transient(master)
         self.grab_set()
         self.create_interface()
@@ -390,31 +390,40 @@ class LivretWindow(tk.Toplevel):
         # ---------------pliage dans la génération finale du PDF -------------
 
     def update_illustration(self, event=None):
-        """Met à jour le dessin du pliage selon la valeur dans self.fold_var."""
+        """Met à jour le dessin du pliage selon la valeur dans self.fold_var avec un Canvas réduit à 0%."""
+        # Facteur d'échelle
+        scale = 0.4
+
+        # Calcul des dimensions réduites
+        canvas_w = int(self.canvas_width * scale)
+        canvas_h = int(self.canvas_height * scale)
+        m = 4 * scale  # marge réduite
+
+        # Redimensionner le Canvas
+        self.illustration.config(width=canvas_w, height=canvas_h)
+
+        # Nettoyer l'ancien dessin
         self.illustration.delete("all")
 
         fold = self.fold_var.get()
-        lines = get_fold_lines(fold)   # Cette fonction existe déjà dans ton code
+        lines = get_fold_lines(fold)  # coordonnées logiques (0..1)
 
-        w = self.canvas_width
-        h = self.canvas_height
-        m = 6
-
-        # Rectangle principal (feuille A4 en paysage)
+        # Rectangle principal
         self.illustration.create_rectangle(
-            m, m, w - m, h - m,
+            m, m, canvas_w - m, canvas_h - m,
             outline="black", width=2
         )
 
         # Traits de pliure
         for x0, y0, x1, y1 in lines:
             self.illustration.create_line(
-                x0 * w, y0 * h,
-                x1 * w, y1 * h,
+                x0 * canvas_w, y0 * canvas_h,
+                x1 * canvas_w, y1 * canvas_h,
                 dash=(4, 3),
                 fill="blue",
                 width=1.5
-            )        
+            )
+      
 
     def _enabled_count(self):
         return sum(1 for c in self.contacts if c.get('enabled') and c['enabled'].get())
