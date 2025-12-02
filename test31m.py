@@ -2,11 +2,19 @@
 # -*- coding: utf-8 -*-
 """
                 Edirep — Éditeur de répertoire téléphonique
-- Tkinter UI : import VCF, édition modale, prévisualisation, exports TXT/ODT/ODF.
+- Tkinter UI : import VCF, édition modale, prévisualisation, exports TXT/ODT/ODS.
          Tri manuel des doublons, export livret PDF avec imposition.
 - mode sombre, logo normal + logo inversé (crop configurable séparé pour clair/sombre).
                             klm novembre 2025
 """
+
+#------------------------plan du script-----------------------------
+# --------1-------- CONFIGURATION EDITABLE -------------------------
+#---------2-------------- UTILITAIRES ------------------------------
+# --------3-------- Helpers PDF / Imposition -----------------------
+# --------4----------- LivretWindow (Modal) ------------------------
+# --------5------- Sélecteur du type de pliage ---------------------
+
 
 import os
 import sys
@@ -18,11 +26,14 @@ from collections import defaultdict
 from datetime import datetime
 
 # Bibliothèques optionnelles
+
+# Vérification odfpy
 try:
-    from odf.opendocument import OpenDocumentText
+    from odf.opendocument import OpenDocumentText, OpenDocumentSpreadsheet
     from odf.text import P
+    from odf.table import Table, TableRow, TableCell
     ODF_AVAILABLE = True
-except Exception:
+except ImportError:
     ODF_AVAILABLE = False
 
 try:
@@ -44,7 +55,7 @@ MIN_SPACES = 3
 
 APP_WINDOW_TITLE = "Edirep"
 MAIN_HEADER_TEXT = "Éditeur de répertoire téléphonique"
-STATUS_DEFAULT_TEXT = "KLM - Edirep - v3.2.1"
+STATUS_DEFAULT_TEXT = "KLM - Edirep - v3.3.1"
 
 BUTTON_LABELS = {
     'import_vcf': "Importer VCF",
@@ -62,10 +73,9 @@ PDF_DEFAULTS = {
     'date_text': "Édité le {}",                   # affiche la date
     'cover_line1': '',                            # bas de la couverture droite
     'cover_line2': '',                            # sous-titre bas couverture
-    'back_line1': 'Édité avec Repedit v.3.2.1',   # titre haut 4e de couv gauche
+    'back_line1': 'Édité avec Repedit v.3.3.1',   # titre haut 4e de couv gauche
     'back_line2': 'KLM Software',                 # titre bas 4e de couv gauche
 }
-
 
 COVER_TITLES = {
     'cover_line1': PDF_DEFAULTS['cover_line1'],
@@ -73,11 +83,6 @@ COVER_TITLES = {
     'back_line1':  PDF_DEFAULTS['back_line1'],
     'back_line2':  PDF_DEFAULTS['back_line2'],
 }
-
-
-
-
-
 FIXED_LETTER_SIZE = 23
 FIXED_CONTACT_SIZE = 13
 
@@ -255,6 +260,7 @@ def make_logical_half_pages(contacts_enabled, contact_pt, heading_pt, page_h_pts
                 used += heading_h
             curr.append(('L', f"{ct['name']}|||{ct['number']}"))
             used += line_height
+
     if curr:
         halves.append(curr)
     return halves, line_height
@@ -262,7 +268,7 @@ def make_logical_half_pages(contacts_enabled, contact_pt, heading_pt, page_h_pts
 def imposition_sequence(n_halves):
     """
     Renvoie une séquence d'imposition pour n_halves logiques (1-indexed).
-    Sortie : list of pairs (left_half_index, right_half_index) — indices 1..n_halves (0 = blank)
+    Sortie : list of pairs (left_half_index, right_half_index).
     """
     P = n_halves
     rem = P % 4
@@ -279,7 +285,21 @@ def imposition_sequence(n_halves):
         out.append((Lb if Lb <= n_halves else 0, Rb if Rb <= n_halves else 0))
     return out
 
-# ------------------------- LivretWindow (Modal) -------------------------
+def get_fold_lines(fold_type):
+    if fold_type == 2:
+        return [(0.5, 0, 0.5, 1)]
+    elif fold_type == 4:
+        return [(0.5, 0, 0.5, 1), (0, 0.5, 1, 0.5)]
+    elif fold_type == 8:
+        return [
+            (1/4, 0, 1/4, 1),
+            (1/2, 0, 1/2, 1),
+            (3/4, 0, 3/4, 1),
+            (0, 0.5, 1, 0.5)
+        ]
+    return []
+
+    # ------------------------- LivretWindow (Modal) -------------------------
 
 class LivretWindow(tk.Toplevel):
     """
@@ -295,6 +315,19 @@ class LivretWindow(tk.Toplevel):
         self.transient(master)
         self.grab_set()
         self.create_interface()
+  
+
+    def draw_fold(self, canvas, lines):
+        w = canvas.winfo_reqwidth()
+        h = canvas.winfo_reqheight()
+        m = 6
+
+        canvas.create_rectangle(m, m, w-m, h-m, outline='black', width=2)
+
+        for x0, y0, x1, y1 in lines:
+            canvas.create_line(x0*w, y0*h, x1*w, y1*h,
+                               dash=(4, 3), fill='blue', width=1.5)
+        
 
     def create_interface(self):
         tk.Label(self, text='Titre (ligne 1) :').pack(anchor='w', padx=8, pady=(10,2))
@@ -304,19 +337,46 @@ class LivretWindow(tk.Toplevel):
         tk.Label(self, text='Ligne 2 (nom) :').pack(anchor='w', padx=8, pady=(8,2))
         self.name_var = tk.StringVar(value=PDF_DEFAULTS['title_line2'])
         tk.Entry(self, textvariable=self.name_var, width=72).pack(padx=8)
-        #champs nombre de contact non modifiable et grisé
+
         tk.Label(self, text='Ligne 3 (nombre contacts) :').pack(anchor='w', padx=8, pady=(8,2))
         self.count_var = tk.StringVar(value=PDF_DEFAULTS['count_text'].format(self._enabled_count()))
-        count_entry = tk.Entry(self, textvariable=self.count_var, width=72, state='readonly', readonlybackground='#f0f0f0', fg='black')
-        count_entry.pack(padx=8)
+        tk.Entry(self, textvariable=self.count_var, width=72, state='disable').pack(padx=8)
 
-        #champs date non modifiable et grisé
         tk.Label(self, text='Ligne 4 (date) :').pack(anchor='w', padx=8, pady=(8,2))
         self.date_var = tk.StringVar(value=PDF_DEFAULTS['date_text'].format(datetime.now().strftime('%d %B %Y')))
-        date_entry = tk.Entry(self, textvariable=self.date_var, width=72, state='readonly', readonlybackground='#f0f0f0', fg='black')
-        date_entry.pack(padx=8)
+        tk.Entry(self, textvariable=self.date_var, width=72, state='disable').pack(padx=8)
 
-        tk.Label(self, text='(PDF A4 paysage — couverture droite, 4ᵉ page à gauche)').pack(padx=8, pady=8)
+        tk.Label(self, text='(PDF A4 en mode paysage)').pack(padx=8, pady=8)
+
+        # ---------------- Sélecteur du type de pliage ----------------
+
+        tk.Label(self, text="Type de pliage (traits de pliure) :").pack(anchor='w', padx=8, pady=(4,2))
+
+        self.fold_var = tk.IntVar(value=2)   # valeur par défaut
+        fold_choices = [2, 4, 8]
+
+        fold_menu = ttk.OptionMenu(self, self.fold_var, self.fold_var.get(), *fold_choices)
+        fold_menu.pack(padx=8, anchor='w')
+
+        # ---------------- Illustration du pliage « l’aperçu interactif » dans la fenêtre export PDF.----------------
+
+        self.canvas_width = 500
+        self.canvas_height = 350
+
+        self.illustration = tk.Canvas(
+            self,
+            width=self.canvas_width,
+            height=self.canvas_height,
+            bg="white",
+            highlightthickness=1,
+            highlightbackground="#888"
+        )
+        self.illustration.pack(pady=10)
+
+        # Dessin initial
+        self.update_illustration(None)
+
+        # ----------------Fin du Sélecteur du type de pliage ----------------
 
         btn_frame = tk.Frame(self)
         btn_frame.pack(pady=(6, 12))
@@ -326,10 +386,44 @@ class LivretWindow(tk.Toplevel):
         info = "Logo trouvé" if (self.logo_path and os.path.exists(self.logo_path)) else "Aucun logo (logo.png manquant)"
         tk.Label(self, text=info, fg='gray').pack(pady=(0,8))
 
+        # ---------------pliage dans la génération finale du PDF -------------
+
+    def update_illustration(self, event=None):
+        """Met à jour le dessin du pliage selon la valeur dans self.fold_var."""
+        self.illustration.delete("all")
+
+        fold = self.fold_var.get()
+        lines = get_fold_lines(fold)   # Cette fonction existe déjà dans ton code
+
+        w = self.canvas_width
+        h = self.canvas_height
+        m = 6
+
+        # Rectangle principal (feuille A4 en paysage)
+        self.illustration.create_rectangle(
+            m, m, w - m, h - m,
+            outline="black", width=2
+        )
+
+        # Traits de pliure
+        for x0, y0, x1, y1 in lines:
+            self.illustration.create_line(
+                x0 * w, y0 * h,
+                x1 * w, y1 * h,
+                dash=(4, 3),
+                fill="blue",
+                width=1.5
+            )        
+
     def _enabled_count(self):
         return sum(1 for c in self.contacts if c.get('enabled') and c['enabled'].get())
 
     def generate_pdf(self):
+
+        fold_type = self.fold_var.get()
+        lines = get_fold_lines(fold_type)
+
+        
         if not REPORTLAB_AVAILABLE:
             messagebox.showerror('reportlab manquant', "Installe reportlab (pip install reportlab) pour générer le PDF.")
             return
@@ -345,6 +439,18 @@ class LivretWindow(tk.Toplevel):
 
         c = canvas.Canvas(path, pagesize=landscape(A4))
         page_w, page_h = landscape(A4)
+
+        def draw_pdf_fold_lines():
+            c.setDash(4, 3)                 # pointillés
+            c.setLineWidth(0.6)
+            c.setStrokeColorRGB(0, 0, 1)    # bleu
+
+            for x0, y0, x1, y1 in lines:
+                c.line(x0 * page_w, y0 * page_h, x1 * page_w, y1 * page_h)
+
+            c.setDash()  # reset dash
+
+
         demi_w = page_w / 2.0
 
         ui_heading = FIXED_LETTER_SIZE
@@ -368,10 +474,9 @@ class LivretWindow(tk.Toplevel):
 
         impo = imposition_sequence(len(halves))
 
-
-        # -------------------------------------------------------------------
+        # ----------------------------------------------------------------------
         # MISE EN PAGE HARMONISÉE DE LA COUVERTURE + 4ᵉ de couv sur la même page
-        # -------------------------------------------------------------------
+        # ----------------------------------------------------------------------
 
         # Polices
         c.setFont("Helvetica-Bold", 18)
@@ -384,7 +489,7 @@ class LivretWindow(tk.Toplevel):
         # Centre vertical pour les titres principaux sur la couverture
         center_y = page_h * 0.75
 
-        # -------------------- Couverture (droite) --------------------
+        # -------------------- Couverture (droite) ----------------------------------
         # On affiche 4 lignes disposées de façon harmonieuse (espacement réglé en mm)
         c.setFont("Helvetica-Bold", 18)
         c.drawCentredString(right_center_x, center_y, self.title_var.get())            # ligne 1 (grosse)
@@ -394,7 +499,7 @@ class LivretWindow(tk.Toplevel):
         c.drawCentredString(right_center_x, center_y - 50*mm, self.count_var.get())    # ligne 3
         c.drawCentredString(right_center_x, center_y - 65*mm, self.date_var.get())     # ligne 4
 
-        # Si tu veux des textes supplémentaires bas de couverture (petit) :
+        # Option textes supplémentaires bas de couverture (petit) :
         c.setFont("Helvetica-Bold", 11)
         c.drawCentredString(right_center_x, page_h * 0.18, COVER_TITLES.get('cover_line1'))
         c.drawCentredString(right_center_x, page_h * 0.14, COVER_TITLES.get('cover_line2'))
@@ -426,8 +531,8 @@ class LivretWindow(tk.Toplevel):
         c.drawCentredString(left_center_x, page_h * 0.45, COVER_TITLES.get('back_line2')) # placement de la ligne du bas
 
         # Une seule page physique : maintenant on passe aux pages intérieures
+        draw_pdf_fold_lines()
         c.showPage()
-
 
         # -------------------- Pages intérieures --------------------
 
@@ -467,12 +572,12 @@ class LivretWindow(tk.Toplevel):
             left_idx, right_idx = pair
             render_half(0, left_idx)
             render_half(demi_w, right_idx)
+            draw_pdf_fold_lines()
             c.showPage()
 
         c.save()
         messagebox.showinfo('PDF Livret', f'PDF généré : {path}')
         self.destroy()
-
 
 # ------------------------- Fenêtre principale (KLMEditor) -------------------------
 
@@ -623,11 +728,11 @@ class KLMEditor(tk.Tk):
         btn_frame.pack()
 
         ttk.Button(btn_frame, text=BUTTON_LABELS['import_vcf'], command=self.load_vcf, style=TTK_STYLE_NAME).pack(side='left', padx=4)
+        ttk.Button(btn_frame, text=BUTTON_LABELS['dedupe'], command=self.manual_remove_duplicates, style=TTK_STYLE_NAME).pack(side='left', padx=4)
         ttk.Button(btn_frame, text=BUTTON_LABELS['export_txt'], command=self.export_txt, style=TTK_STYLE_NAME).pack(side='left', padx=4)
         ttk.Button(btn_frame, text=BUTTON_LABELS['export_odt'], command=self.export_odt, style=TTK_STYLE_NAME).pack(side='left', padx=4)
         ttk.Button(btn_frame, text=BUTTON_LABELS['export_ods'], command=self.export_ods, style=TTK_STYLE_NAME).pack(side='left', padx=4)
-        ttk.Button(btn_frame, text=BUTTON_LABELS['dedupe'], command=self.manual_remove_duplicates, style=TTK_STYLE_NAME).pack(side='left', padx=4)
-
+        
         ttk.Button(btn_frame, text=BUTTON_LABELS['livret'],
                    command=lambda: LivretWindow(self, self.contacts, logo_path=self.logo_path), style=TTK_STYLE_NAME).pack(side='left', padx=8)
 
@@ -978,13 +1083,14 @@ class KLMEditor(tk.Tk):
         except Exception:
             pass
 
-    # ---------- Exports ----------
+    # -------------------------------- Exports ----------------------------------------
+
     def export_txt(self):
         """Export texte format simple trié par lettre."""
         if not self.contacts:
             messagebox.showinfo('TXT Export', 'Aucun contact.')
             return
-        path = filedialog.asksaveasfilename(defaultextension='.txt')
+        path = filedialog.asksaveasfilename(defaultextension='.txt', filetypes=[('TXT', '*.txt')])
         if not path:
             return
         grouped = defaultdict(list)
@@ -1008,13 +1114,12 @@ class KLMEditor(tk.Tk):
                 f.write("\n")
         messagebox.showinfo('TXT Export', f'Fichier TXT généré : {path}')
 
-
     def export_odt(self):
         """Export ODT via odfpy si installé."""
         if not ODF_AVAILABLE:
             messagebox.showinfo('odfpy manquant', "Installez odfpy (pip install odfpy) pour exporter ODT.")
             return
-        path = filedialog.asksaveasfilename(defaultextension='.odt')
+        path = filedialog.asksaveasfilename(defaultextension='.odt', filetypes=[('ODT', '*.odt')])
         if not path:
             return
         doc = OpenDocumentText()
@@ -1031,23 +1136,19 @@ class KLMEditor(tk.Tk):
         doc.save(path)
         messagebox.showinfo('ODT Export', f'Fichier ODT généré : {path}')
 
-
     def export_ods(self):
         """Export ODS (tableur) via odfpy."""
         if not ODF_AVAILABLE:
             messagebox.showinfo('odfpy manquant', "Installez odfpy (pip install odfpy) pour exporter ODS.")
             return
-
-        path = filedialog.asksaveasfilename(defaultextension='.ods')
+        path = filedialog.asksaveasfilename(defaultextension='.ods', filetypes=[('ODS', '*.ods')])
         if not path:
             return
-
         from odf.opendocument import OpenDocumentSpreadsheet
         from odf.table import Table, TableRow, TableCell
         from odf.text import P
 
         doc = OpenDocumentSpreadsheet()
-
         table = Table(name="Contacts")
         doc.spreadsheet.addElement(table)
 
@@ -1077,20 +1178,26 @@ class KLMEditor(tk.Tk):
             # Contenu
             for c in grouped[letter]:
                 row = TableRow()
-
                 cell_name = TableCell()
                 cell_name.addElement(P(text=c['name']))
                 row.addElement(cell_name)
-
                 cell_number = TableCell()
                 cell_number.addElement(P(text=c['number']))
                 row.addElement(cell_number)
-
                 table.addElement(row)
 
         doc.save(path)
         messagebox.showinfo('ODS Export', f'Fichier ODS généré : {path}')
 
+    def export_pdf_livret(self):
+        """Ouvre la fenêtre LivretWindow pour générer le PDF."""
+        if not REPORTLAB_AVAILABLE:
+            messagebox.showinfo('PDF Livret', "Installez reportlab (pip install reportlab) pour générer le PDF.")
+            return
+        if not self.contacts:
+            messagebox.showinfo('PDF Livret', "Aucun contact disponible.")
+            return
+        LivretWindow(self, self.contacts, logo_path=self.logo_path)
 
 
 # ------------------------- MAIN -------------------------
