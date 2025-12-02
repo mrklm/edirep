@@ -50,7 +50,52 @@ try:
 except Exception:
     PIL_AVAILABLE = False
 
+def make_logical_pages(contacts_body, fold_type):
+    """
+    Retourne une liste de pages logiques pour le PDF selon le pliage.
+    Chaque page contient une liste de zones avec rotation.
+    """
+    pages = []
+
+    if fold_type == 2:
+        zones_per_page = 2
+        rotation = 0
+    elif fold_type == 4:
+        zones_per_page = 4
+        rotation = 90
+    elif fold_type == 8:
+        zones_per_page = 8
+        rotation = 0
+    else:
+        raise ValueError("Type de pliage inconnu")
+
+    for i in range(0, len(contacts_body), zones_per_page):
+        page_zones = contacts_body[i:i+zones_per_page]
+        pages.append({"zones": page_zones, "rotation": rotation})
+
+    return pages
+
+
+def assemble_livret(contacts, fold_type):
+    """Assemble le livret complet avec couverture et 4ème de couverture."""
+    if not contacts:
+        return []
+
+    cover = contacts[0]
+    back_cover = contacts[-1] if len(contacts) > 1 else cover
+    contacts_body = contacts[1:-1] if len(contacts) > 2 else []
+
+    pages = make_logical_pages(contacts_body, fold_type)
+
+    final_pages = [{"zones": [cover], "rotation": 0}]  # Couverture
+    final_pages.extend(pages)                         # Pages intérieures
+    final_pages.append({"zones": [back_cover], "rotation": 0})  # 4e de couverture
+
+    return final_pages
+
+
 # ------------------------- CONFIGURATION EDITABLE -------------------------
+
 MIN_SPACES = 3
 
 APP_WINDOW_TITLE = "Edirep"
@@ -299,7 +344,51 @@ def get_fold_lines(fold_type):
         ]
     return []
 
-    # ------------------------- LivretWindow (Modal) -------------------------
+# ------------------------- LivretWindow (Modal) -------------------------
+
+    # ---------------- imports ----------------
+    import tkinter as tk
+    from tkinter import ttk, messagebox, filedialog
+    from reportlab.pdfgen import canvas
+    from reportlab.lib.pagesizes import A4, landscape
+    # autres imports nécessaires...
+
+    # ---------------- fonctions utilitaires ----------------
+
+    def make_logical_pages(contacts_body, fold_type):
+        """Retourne une liste de pages logiques pour le PDF selon le pliage."""
+        pages = []
+        if fold_type == 2:
+            zones_per_page = 2
+            rotation = 0
+        elif fold_type == 4:
+            zones_per_page = 4
+            rotation = 90
+        elif fold_type == 8:
+            zones_per_page = 8
+            rotation = 0
+        else:
+            raise ValueError("Type de pliage inconnu")
+        for i in range(0, len(contacts_body), zones_per_page):
+            page_zones = contacts_body[i:i+zones_per_page]
+            pages.append({"zones": page_zones, "rotation": rotation})
+        return pages
+
+    def assemble_livret(contacts, fold_type):
+        """Assemble le livret complet avec couverture et 4ème de couverture."""
+        if not contacts:
+            return []
+        cover = contacts[0]
+        back_cover = contacts[-1] if len(contacts) > 1 else cover
+        contacts_body = contacts[1:-1] if len(contacts) > 2 else []
+        pages = make_logical_pages(contacts_body, fold_type)
+        final_pages = [{"zones": [cover], "rotation": 0}]
+        final_pages.extend(pages)
+        final_pages.append({"zones": [back_cover], "rotation": 0})
+        return final_pages
+
+    # ---------------- classe LivretWindow ----------------
+
 
 class LivretWindow(tk.Toplevel):
     """
@@ -328,7 +417,6 @@ class LivretWindow(tk.Toplevel):
             canvas.create_line(x0*w, y0*h, x1*w, y1*h,
                                dash=(4, 3), fill='blue', width=1.5)
         
-
     def create_interface(self):
         tk.Label(self, text='Titre (ligne 1) :').pack(anchor='w', padx=8, pady=(10,2))
         self.title_var = tk.StringVar(value=PDF_DEFAULTS['title_line1'])
@@ -349,18 +437,16 @@ class LivretWindow(tk.Toplevel):
         tk.Label(self, text='(PDF A4 en mode paysage)').pack(padx=8, pady=8)
 
         # ---------------- Sélecteur du type de pliage ----------------
-
         tk.Label(self, text="Type de pliage (traits de pliure) :").pack(anchor='w', padx=8, pady=(4,2))
 
-        self.fold_var = tk.IntVar(value=2)   # valeur par défaut
-        self.fold_var.trace_add("write", self.update_illustration)  # <-- ici, detection pour maj illustration
-        fold_choices = [2, 4, 8]
+        self.fold_var = tk.IntVar(value=2)
+        self.fold_var.trace_add("write", self.update_illustration)
 
+        fold_choices = [2, 4, 8]
         fold_menu = ttk.OptionMenu(self, self.fold_var, self.fold_var.get(), *fold_choices)
         fold_menu.pack(padx=8, anchor='w')
 
-        # ---------------- Illustration du pliage « l’aperçu interactif » dans la fenêtre export PDF.----------------
-
+        # ---------------- Illustration du pliage ----------------
         self.canvas_width = 500
         self.canvas_height = 350
 
@@ -375,8 +461,8 @@ class LivretWindow(tk.Toplevel):
         self.illustration.pack(pady=10)
 
         # Dessin initial
-        self.update_illustration(None)
-
+        self.update_illustration()        
+    
         # ----------------Fin du Sélecteur du type de pliage ----------------
 
         btn_frame = tk.Frame(self)
@@ -389,8 +475,8 @@ class LivretWindow(tk.Toplevel):
 
         # ---------------pliage dans la génération finale du PDF -------------
 
-    def update_illustration(self, event=None):
-        """Met à jour le dessin du pliage selon la valeur dans self.fold_var avec un Canvas réduit à 0%."""
+    def update_illustration(self, *args):
+        """Met à jour le dessin du pliage selon la valeur dans self.fold_var avec un Canvas réduit à 40%."""
         # Facteur d'échelle
         scale = 0.4
 
@@ -423,7 +509,6 @@ class LivretWindow(tk.Toplevel):
                 fill="blue",
                 width=1.5
             )
-      
 
     def _enabled_count(self):
         return sum(1 for c in self.contacts if c.get('enabled') and c['enabled'].get())
