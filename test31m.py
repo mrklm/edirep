@@ -353,6 +353,7 @@ class LivretWindow(tk.Toplevel):
         tk.Label(self, text="Type de pliage (traits de pliure) :").pack(anchor='w', padx=8, pady=(4,2))
 
         self.fold_var = tk.IntVar(value=2)   # valeur par défaut
+        self.fold_var.trace_add("write", self.update_illustration)  # <-- ici, detection pour maj illustration
         fold_choices = [2, 4, 8]
 
         fold_menu = ttk.OptionMenu(self, self.fold_var, self.fold_var.get(), *fold_choices)
