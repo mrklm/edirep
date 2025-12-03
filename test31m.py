@@ -746,7 +746,6 @@ class LivretWindow(tk.Toplevel):
 
         tk.Label(self, text="Type de pliage (traits de pliure) :").pack(anchor='w', padx=8, pady=(4,2))
         self.fold_var = tk.IntVar(value=2)
-        self.fold_var.trace_add("write", lambda *a: self.update_illustration())
         fold_choices = [2,4,8]
         fold_menu = ttk.OptionMenu(self, self.fold_var, self.fold_var.get(), *fold_choices)
         fold_menu.pack(padx=8, anchor='w')
@@ -756,6 +755,8 @@ class LivretWindow(tk.Toplevel):
         self.illustration = tk.Canvas(self, width=self.canvas_width, height=self.canvas_height, bg="white", highlightthickness=1, highlightbackground="#888")
         self.illustration.pack(pady=10)
         self.update_illustration()
+
+        self.fold_var.trace_add("write", lambda *a: self.update_illustration())
 
         btn_frame = tk.Frame(self)
         btn_frame.pack(pady=(6,12))
