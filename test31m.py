@@ -50,57 +50,12 @@ try:
 except Exception:
     PIL_AVAILABLE = False
 
-def make_logical_pages(contacts_body, fold_type):
-    """
-    Retourne une liste de pages logiques pour le PDF selon le pliage.
-    Chaque page contient une liste de zones avec rotation.
-    """
-    pages = []
-
-    if fold_type == 2:
-        zones_per_page = 2
-        rotation = 0
-    elif fold_type == 4:
-        zones_per_page = 4
-        rotation = 90
-    elif fold_type == 8:
-        zones_per_page = 8
-        rotation = 0
-    else:
-        raise ValueError("Type de pliage inconnu")
-
-    for i in range(0, len(contacts_body), zones_per_page):
-        page_zones = contacts_body[i:i+zones_per_page]
-        pages.append({"zones": page_zones, "rotation": rotation})
-
-    return pages
-
-
-def assemble_livret(contacts, fold_type):
-    """Assemble le livret complet avec couverture et 4ème de couverture."""
-    if not contacts:
-        return []
-
-    cover = contacts[0]
-    back_cover = contacts[-1] if len(contacts) > 1 else cover
-    contacts_body = contacts[1:-1] if len(contacts) > 2 else []
-
-    pages = make_logical_pages(contacts_body, fold_type)
-
-    final_pages = [{"zones": [cover], "rotation": 0}]  # Couverture
-    final_pages.extend(pages)                         # Pages intérieures
-    final_pages.append({"zones": [back_cover], "rotation": 0})  # 4e de couverture
-
-    return final_pages
-
-
 # ------------------------- CONFIGURATION EDITABLE -------------------------
-
 MIN_SPACES = 3
 
 APP_WINDOW_TITLE = "Edirep"
 MAIN_HEADER_TEXT = "Éditeur de répertoire téléphonique"
-STATUS_DEFAULT_TEXT = "KLM - Edirep - v3.3.1"
+STATUS_DEFAULT_TEXT = "KLM - Edirep - v3.4.2"
 
 BUTTON_LABELS = {
     'import_vcf': "Importer VCF",
@@ -118,7 +73,7 @@ PDF_DEFAULTS = {
     'date_text': "Édité le {}",                   # affiche la date
     'cover_line1': '',                            # bas de la couverture droite
     'cover_line2': '',                            # sous-titre bas couverture
-    'back_line1': 'Édité avec Repedit v.3.3.1',   # titre haut 4e de couv gauche
+    'back_line1': 'Édité avec Repedit v.3.4.2',   # titre haut 4e de couv gauche
     'back_line2': 'KLM Software',                 # titre bas 4e de couv gauche
 }
 
@@ -344,51 +299,7 @@ def get_fold_lines(fold_type):
         ]
     return []
 
-# ------------------------- LivretWindow (Modal) -------------------------
-
-    # ---------------- imports ----------------
-    import tkinter as tk
-    from tkinter import ttk, messagebox, filedialog
-    from reportlab.pdfgen import canvas
-    from reportlab.lib.pagesizes import A4, landscape
-    # autres imports nécessaires...
-
-    # ---------------- fonctions utilitaires ----------------
-
-    def make_logical_pages(contacts_body, fold_type):
-        """Retourne une liste de pages logiques pour le PDF selon le pliage."""
-        pages = []
-        if fold_type == 2:
-            zones_per_page = 2
-            rotation = 0
-        elif fold_type == 4:
-            zones_per_page = 4
-            rotation = 90
-        elif fold_type == 8:
-            zones_per_page = 8
-            rotation = 0
-        else:
-            raise ValueError("Type de pliage inconnu")
-        for i in range(0, len(contacts_body), zones_per_page):
-            page_zones = contacts_body[i:i+zones_per_page]
-            pages.append({"zones": page_zones, "rotation": rotation})
-        return pages
-
-    def assemble_livret(contacts, fold_type):
-        """Assemble le livret complet avec couverture et 4ème de couverture."""
-        if not contacts:
-            return []
-        cover = contacts[0]
-        back_cover = contacts[-1] if len(contacts) > 1 else cover
-        contacts_body = contacts[1:-1] if len(contacts) > 2 else []
-        pages = make_logical_pages(contacts_body, fold_type)
-        final_pages = [{"zones": [cover], "rotation": 0}]
-        final_pages.extend(pages)
-        final_pages.append({"zones": [back_cover], "rotation": 0})
-        return final_pages
-
-    # ---------------- classe LivretWindow ----------------
-
+    # ------------------------- LivretWindow (Modal) -------------------------
 
 class LivretWindow(tk.Toplevel):
     """
@@ -400,7 +311,7 @@ class LivretWindow(tk.Toplevel):
         self.contacts = contacts
         self.logo_path = logo_path
         self.logo_max_width = logo_max_width
-      # self.geometry('620x520') # en enlevant la dimenssion de la fenetre, elle est calculée automatiquement
+        #self.geometry('620x520')   # taille de la fentre export PDF, auto si commenté
         self.transient(master)
         self.grab_set()
         self.create_interface()
@@ -417,6 +328,7 @@ class LivretWindow(tk.Toplevel):
             canvas.create_line(x0*w, y0*h, x1*w, y1*h,
                                dash=(4, 3), fill='blue', width=1.5)
         
+
     def create_interface(self):
         tk.Label(self, text='Titre (ligne 1) :').pack(anchor='w', padx=8, pady=(10,2))
         self.title_var = tk.StringVar(value=PDF_DEFAULTS['title_line1'])
@@ -437,18 +349,21 @@ class LivretWindow(tk.Toplevel):
         tk.Label(self, text='(PDF A4 en mode paysage)').pack(padx=8, pady=8)
 
         # ---------------- Sélecteur du type de pliage ----------------
+
         tk.Label(self, text="Type de pliage (traits de pliure) :").pack(anchor='w', padx=8, pady=(4,2))
 
-        self.fold_var = tk.IntVar(value=2)
+        self.fold_var = tk.IntVar(value=2)   # valeur par défaut
+        fold_choices = [2, 4, 8]
         self.fold_var.trace_add("write", self.update_illustration)
 
-        fold_choices = [2, 4, 8]
+
         fold_menu = ttk.OptionMenu(self, self.fold_var, self.fold_var.get(), *fold_choices)
         fold_menu.pack(padx=8, anchor='w')
 
-        # ---------------- Illustration du pliage ----------------
-        self.canvas_width = 500
-        self.canvas_height = 350
+        # ---------------- Illustration du pliage « l’aperçu interactif » dans la fenêtre export PDF.----------------
+
+        self.canvas_width = 250   # largeur A4 de l'apercu A4 dans l'export PDF
+        self.canvas_height = 175  # hauteur A4 de l'apercu A4 dans l'export PDF
 
         self.illustration = tk.Canvas(
             self,
@@ -461,8 +376,8 @@ class LivretWindow(tk.Toplevel):
         self.illustration.pack(pady=10)
 
         # Dessin initial
-        self.update_illustration()        
-    
+        self.update_illustration(None)
+
         # ----------------Fin du Sélecteur du type de pliage ----------------
 
         btn_frame = tk.Frame(self)
@@ -476,49 +391,39 @@ class LivretWindow(tk.Toplevel):
         # ---------------pliage dans la génération finale du PDF -------------
 
     def update_illustration(self, *args):
-        """Met à jour le dessin du pliage selon la valeur dans self.fold_var avec un Canvas réduit à 40%."""
-        # Facteur d'échelle
-        scale = 0.4
-
-        # Calcul des dimensions réduites
-        canvas_w = int(self.canvas_width * scale)
-        canvas_h = int(self.canvas_height * scale)
-        m = 4 * scale  # marge réduite
-
-        # Redimensionner le Canvas
-        self.illustration.config(width=canvas_w, height=canvas_h)
-
-        # Nettoyer l'ancien dessin
+        """Met à jour le dessin du pliage selon la valeur dans self.fold_var."""
         self.illustration.delete("all")
 
         fold = self.fold_var.get()
-        lines = get_fold_lines(fold)  # coordonnées logiques (0..1)
+        lines = get_fold_lines(fold)   # Cette fonction existe déjà dans ton code
 
-        # Rectangle principal
+        w = self.canvas_width
+        h = self.canvas_height
+        m = 3 # taille du canva autour de l'apercu A4 de l'export PDF
+
+        # Rectangle principal (feuille A4 en paysage)
         self.illustration.create_rectangle(
-            m, m, canvas_w - m, canvas_h - m,
+            m, m, w - m, h - m,
             outline="black", width=2
         )
 
         # Traits de pliure
         for x0, y0, x1, y1 in lines:
             self.illustration.create_line(
-                x0 * canvas_w, y0 * canvas_h,
-                x1 * canvas_w, y1 * canvas_h,
+                x0 * w, y0 * h,
+                x1 * w, y1 * h,
                 dash=(4, 3),
                 fill="blue",
                 width=1.5
-            )
+            )        
 
     def _enabled_count(self):
         return sum(1 for c in self.contacts if c.get('enabled') and c['enabled'].get())
 
     def generate_pdf(self):
-
         fold_type = self.fold_var.get()
         lines = get_fold_lines(fold_type)
 
-        
         if not REPORTLAB_AVAILABLE:
             messagebox.showerror('reportlab manquant', "Installe reportlab (pip install reportlab) pour générer le PDF.")
             return
@@ -535,109 +440,39 @@ class LivretWindow(tk.Toplevel):
         c = canvas.Canvas(path, pagesize=landscape(A4))
         page_w, page_h = landscape(A4)
 
-        def draw_pdf_fold_lines():
-            c.setDash(4, 3)                 # pointillés
-            c.setLineWidth(0.6)
-            c.setStrokeColorRGB(0, 0, 1)    # bleu
-
-            for x0, y0, x1, y1 in lines:
-                c.line(x0 * page_w, y0 * page_h, x1 * page_w, y1 * page_h)
-
-            c.setDash()  # reset dash
-
-
         demi_w = page_w / 2.0
-
-        ui_heading = FIXED_LETTER_SIZE
-        ui_contact = FIXED_CONTACT_SIZE
-        pdf_contact_pt = max(8, int(ui_contact * 0.9))
-        pdf_heading_pt = max(12, int(ui_heading * 0.9))
-
         left_margin = 12 * mm
         right_margin = 12 * mm
-        top_margin = 18 * mm + pdf_heading_pt * 0.4
+        top_margin = 18 * mm
         bottom_margin = 12 * mm
 
-        halves, approx_line_height = make_logical_half_pages(
-            contacts_enabled,
-            contact_pt=pdf_contact_pt,
-            heading_pt=pdf_heading_pt,
-            page_h_pts=page_h,
-            top_margin_pts=top_margin,
-            bottom_margin_pts=bottom_margin
-        )
-
-        impo = imposition_sequence(len(halves))
+        pdf_contact_pt = max(8, int(FIXED_CONTACT_SIZE * 0.9))
+        pdf_heading_pt = max(12, int(FIXED_LETTER_SIZE * 0.9))
 
         # ----------------------------------------------------------------------
-        # MISE EN PAGE HARMONISÉE DE LA COUVERTURE + 4ᵉ de couv sur la même page
+        # Fonction utilitaire : traits de pliure
         # ----------------------------------------------------------------------
+        def draw_pdf_fold_lines():
+            c.setDash(4, 3)
+            c.setLineWidth(0.6)
+            c.setStrokeColorRGB(0, 0, 1)
+            for x0, y0, x1, y1 in lines:
+                c.line(x0 * page_w, y0 * page_h, x1 * page_w, y1 * page_h)
+            c.setDash()
 
-        # Polices
-        c.setFont("Helvetica-Bold", 18)
-
-        # Centres gauche/droite pour la page pliée
-        demi_w = page_w / 2.0
-        left_center_x = demi_w / 2.0              # centre horizontal 4ème de couv (gauche)
-        right_center_x = demi_w + (demi_w / 2.0)  # centre horizontal couverture (droite)
-
-        # Centre vertical pour les titres principaux sur la couverture
-        center_y = page_h * 0.75
-
-        # -------------------- Couverture (droite) ----------------------------------
-        # On affiche 4 lignes disposées de façon harmonieuse (espacement réglé en mm)
-        c.setFont("Helvetica-Bold", 18)
-        c.drawCentredString(right_center_x, center_y, self.title_var.get())            # ligne 1 (grosse)
-
-        c.setFont("Helvetica", 12)
-        c.drawCentredString(right_center_x, center_y - 30*mm, self.name_var.get())     # ligne 2   decalage par rapport au titre
-        c.drawCentredString(right_center_x, center_y - 50*mm, self.count_var.get())    # ligne 3
-        c.drawCentredString(right_center_x, center_y - 65*mm, self.date_var.get())     # ligne 4
-
-        # Option textes supplémentaires bas de couverture (petit) :
-        c.setFont("Helvetica-Bold", 11)
-        c.drawCentredString(right_center_x, page_h * 0.18, COVER_TITLES.get('cover_line1'))
-        c.drawCentredString(right_center_x, page_h * 0.14, COVER_TITLES.get('cover_line2'))
-
-        # -------------------- 4ᵉ de couv (gauche) --------------------
-        # Titre haut 4e
-        c.setFont("Helvetica-Bold", 12)
-        c.drawCentredString(left_center_x, page_h * 0.72, COVER_TITLES.get('back_line1')) # placement de la ligne du haut
-
-        # Logo centré entre les deux lignes : on calcule une taille raisonnable puis on le dessine
-        try:
-            logo_path = self.logo_path
-            if logo_path and os.path.exists(logo_path):
-                # largeur/hauteur logo en mm (ajustable)
-                logo_w = 40 * mm
-                logo_h = 40 * mm
-
-                logo_x = left_center_x - (logo_w / 2.0)
-                # placer le logo juste sous la ligne haute (ajustement fin possible en changeant le -)
-                logo_y = page_h * 0.52 # placement du logo
-
-                c.drawImage(logo_path, logo_x, logo_y, width=logo_w, height=logo_h,
-                            preserveAspectRatio=True, mask='auto')
-        except Exception as e:
-            print("Erreur logo 4e couv :", e)
-
-        # Titre bas 4e (sous le logo)
-        c.setFont("Helvetica-Bold", 12)
-        c.drawCentredString(left_center_x, page_h * 0.45, COVER_TITLES.get('back_line2')) # placement de la ligne du bas
-
-        # Une seule page physique : maintenant on passe aux pages intérieures
-        draw_pdf_fold_lines()
-        c.showPage()
-
-        # -------------------- Pages intérieures --------------------
-
+        # ----------------------------------------------------------------------
+        # Fonction utilitaire : dessiner une zone (gauche/droite)
+        # ----------------------------------------------------------------------
         def render_half(x_offset, half_index):
+            """Rend la moitié logique (half_index est 1-based)."""
             inner_left = x_offset + left_margin
             inner_right = x_offset + demi_w - right_margin
             inner_width = inner_right - inner_left
             y = page_h - top_margin
+
             if half_index == 0:
                 return
+
             lines = halves[half_index - 1]
             for item in lines:
                 if item[0] == 'B':
@@ -663,16 +498,79 @@ class LivretWindow(tk.Toplevel):
                     c.drawString(inner_left, y, str(item))
                     y -= int(pdf_contact_pt * 1.07)
 
+
+        # ----------------------------------------------------------------------
+        # Préparer les moitiés logiques (halves)
+        # ----------------------------------------------------------------------
+        halves, approx_line_height = make_logical_half_pages(
+            contacts_enabled,
+            contact_pt=pdf_contact_pt,
+            heading_pt=pdf_heading_pt,
+            page_h_pts=page_h,
+            top_margin_pts=top_margin,
+            bottom_margin_pts=bottom_margin
+        )
+        impo = imposition_sequence(len(halves))
+
+        # ----------------------------------------------------------------------
+        # 1️⃣ Page couverture (droite seule)
+        # ----------------------------------------------------------------------
+        right_center_x = demi_w + (demi_w / 2.0)
+        center_y = page_h * 0.75
+        c.setFont("Helvetica-Bold", 18)
+        c.drawCentredString(right_center_x, center_y, self.title_var.get())
+        c.setFont("Helvetica", 12)
+        c.drawCentredString(right_center_x, center_y - 30*mm, self.name_var.get())
+        c.drawCentredString(right_center_x, center_y - 50*mm, self.count_var.get())
+        c.drawCentredString(right_center_x, center_y - 65*mm, self.date_var.get())
+        c.setFont("Helvetica-Bold", 11)
+        c.drawCentredString(right_center_x, page_h * 0.18, COVER_TITLES.get('cover_line1'))
+        c.drawCentredString(right_center_x, page_h * 0.14, COVER_TITLES.get('cover_line2'))
+        draw_pdf_fold_lines()
+        c.showPage()
+
+        # ----------------------------------------------------------------------
+        # 2️⃣ Pages intérieures
+        # ----------------------------------------------------------------------
         for pair in impo:
             left_idx, right_idx = pair
+            # left_idx/right_idx sont 1-based indices de moitié (0 signifie "vide")
             render_half(0, left_idx)
             render_half(demi_w, right_idx)
             draw_pdf_fold_lines()
             c.showPage()
 
+
+        # ----------------------------------------------------------------------
+        # 3️⃣ Page 4e de couverture (gauche seule)
+        # ----------------------------------------------------------------------
+        left_center_x = demi_w / 2.0
+        c.setFont("Helvetica-Bold", 12)
+        c.drawCentredString(left_center_x, page_h * 0.72, COVER_TITLES.get('back_line1'))
+
+        # Logo
+        try:
+            logo_path = self.logo_path
+            if logo_path and os.path.exists(logo_path):
+                logo_w = 40 * mm
+                logo_h = 40 * mm
+                logo_x = left_center_x - (logo_w / 2.0)
+                logo_y = page_h * 0.52
+                c.drawImage(logo_path, logo_x, logo_y, width=logo_w, height=logo_h, preserveAspectRatio=True, mask='auto')
+        except Exception as e:
+            print("Erreur logo 4e couv :", e)
+
+        c.setFont("Helvetica-Bold", 12)
+        c.drawCentredString(left_center_x, page_h * 0.45, COVER_TITLES.get('back_line2'))
+        draw_pdf_fold_lines()
+        c.showPage()
+
+        # ----------------------------------------------------------------------
+        # Sauvegarde PDF
+        # ----------------------------------------------------------------------
         c.save()
-        messagebox.showinfo('PDF Livret', f'PDF généré : {path}')
-        self.destroy()
+        messagebox.showinfo("PDF généré", f"Fichier PDF généré : {path}")
+
 
 # ------------------------- Fenêtre principale (KLMEditor) -------------------------
 
