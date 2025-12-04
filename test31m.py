@@ -675,9 +675,7 @@ class KLMEditor(tk.Tk):
         path = filedialog.asksaveasfilename(defaultextension='.ods', filetypes=[('ODS', '*.ods')])
         if not path:
             return
-        from odf.opendocument import OpenDocumentSpreadsheet
-        from odf.table import Table, TableRow, TableCell
-        from odf.text import P
+        
         doc = OpenDocumentSpreadsheet()
         table = Table(name="Contacts")
         doc.spreadsheet.addElement(table)
