@@ -796,18 +796,62 @@ class LivretWindow(tk.Toplevel):
         pw, ph = landscape(A4)
 
         # Liste de lignes texte à placer (simple format "Nom — numéro")
-        texts = [f"{ct['name']} — {ct['number']}" for ct in contacts_enabled]
+        # Grouper les contacts par lettre alphabétique
+        grouped = defaultdict(list)
+        for ct in contacts_enabled:
+            letter = get_letter(ct['name'])
+            grouped[letter].append(ct)
+
+        # Créer une liste avec les lettres et les contacts
+        # Format : tuple (type, contenu, style)
+        formatted_lines = []
+        for letter in sorted(grouped.keys()):
+            # Espace avant le groupe (sauf pour le premier)
+            if formatted_lines:
+                formatted_lines.append(('space', '', {}))
+            
+            # Lettre en gras et grande
+            formatted_lines.append(('letter', letter, {'bold': True, 'size': 16}))
+            
+            # Contacts du groupe
+            for ct in sorted(grouped[letter], key=lambda x: x['name'].lower()):
+                formatted_lines.append(('contact', f"{ct['name']} — {ct['number']}", {'size': 10}))
+            
+            # Espace après le groupe
+            formatted_lines.append(('space', '', {}))
 
         # ----- Fonctions utilitaires locales -----
-        def draw_text_block(cobj, x, y, w, h, lines_text, font_name="Helvetica", font_size=10, leading=None):
-            if leading is None:
-                leading = font_size * 1.25
-            cobj.setFont(font_name, font_size)
-            cur_y = y + h - leading
-            for t in lines_text:
-                if cur_y < y + 4:
-                    break
-                cobj.drawString(x + 4, cur_y, t)
+    def draw_text_block(cobj, x, y, w, h, formatted_lines, leading=None):
+        """
+        Dessine un bloc de texte avec support pour les lettres alphabétiques.
+        formatted_lines = liste de tuples (type, text, style)
+        """
+        if leading is None:
+            leading = 12
+        
+        cur_y = y + h - leading
+        
+        for line_type, text, style in formatted_lines:
+            if cur_y < y + 4:  # Plus de place
+                break
+            
+            if line_type == 'space':
+                # Espace vide
+                cur_y -= leading * 0.5
+                continue
+            
+            elif line_type == 'letter':
+                # Lettre alphabétique : grande et en gras
+                font_size = style.get('size', 16)
+                cobj.setFont("Helvetica-Bold", font_size)
+                cobj.drawString(x + 4, cur_y, text)
+                cur_y -= leading * 1.2
+            
+            elif line_type == 'contact':
+                # Contact normal
+                font_size = style.get('size', 10)
+                cobj.setFont("Helvetica", font_size)
+                cobj.drawString(x + 4, cur_y, text)
                 cur_y -= leading
 
         def draw_cover_page(cobj):
@@ -850,34 +894,38 @@ class LivretWindow(tk.Toplevel):
             cobj.setFont("Helvetica-Bold", 12)
             cobj.drawCentredString(left_center_x, ph * 0.45, COVER_TITLES.get('back_line2', ''))
 
-        def draw_rotated_zone(cobj, origin_x, origin_y, zone_w, zone_h, lines_text):
+        def draw_rotated_zone(cobj, origin_x, origin_y, zone_w, zone_h, formatted_lines):
             """
-            Dessine le texte dans la zone mais pivoté 90° horaire (rotate -90).
-            origin_x/origin_y : coin bas-gauche de la zone dans la page (coordonnées ReportLab)
-            zone_w, zone_h : tailles (en points)
+            Dessine le texte pivoté 90° horaire.
+            formatted_lines = liste de tuples (type, text, style)
             """
-            # autosize font pour faire tenir verticalement dans zone_w (après rotation)
-            base = 12
+            base = 10
             min_font = 6
             font_size = base
-            # calc hauteur nécessaire = n_lines * leading (leading ~= 1.25 * font)
+            
+            # Compter lignes réelles (sans espaces)
+            n_lines = sum(1 for t, txt, s in formatted_lines if t != 'space')
+            
             while font_size >= min_font:
                 leading = font_size * 1.25
-                needed = len(lines_text) * leading
-                if needed <= zone_w - 16:  # marge
+                needed = n_lines * leading
+                if needed <= zone_w - 16:
                     break
                 font_size -= 1
+            
             cobj.saveState()
-            # translate to top-right of zone then rotate clockwise (-90)
             cobj.translate(origin_x + zone_w, origin_y)
             cobj.rotate(-90)
-            # After rotate, drawing area width = zone_h, height = zone_w
-            draw_text_block(cobj, 8, 8, zone_h - 16, zone_w - 16, lines_text, font_size=font_size)
+            draw_text_block(cobj, 8, 8, zone_h - 16, zone_w - 16, formatted_lines, leading=font_size * 1.25)
             cobj.restoreState()
 
-        def draw_zone_normal(cobj, origin_x, origin_y, zone_w, zone_h, lines_text, font_size=10):
+        def draw_zone_normal(cobj, origin_x, origin_y, zone_w, zone_h, formatted_lines, font_size=10):
+            """
+            Dessine une zone normale (sans rotation).
+            formatted_lines = liste de tuples (type, text, style)
+            """
             cobj.saveState()
-            draw_text_block(cobj, origin_x, origin_y, zone_w, zone_h, lines_text, font_size=font_size)
+            draw_text_block(cobj, origin_x, origin_y, zone_w, zone_h, formatted_lines, leading=font_size * 1.25)
             cobj.restoreState()
 
         # ----------------------------
@@ -888,9 +936,9 @@ class LivretWindow(tk.Toplevel):
             draw_cover_page(c)
             c.showPage()
             # intérieurs : deux demi-pages sur une page (gauche droite)
-            half = len(texts) // 2
-            left_texts = texts[:half]
-            right_texts = texts[half:]
+            half = len(formatted_lines) // 2
+            left_texts = formatted_lines[:half]
+            right_texts = formatted_lines[half:]
             # page intérieure unique avec colonne gauche + droite
             # colonne gauche
             draw_text_block(c, 12*mm, 12*mm, pw/2 - 24*mm, ph - 24*mm, left_texts, font_size=10)
@@ -912,9 +960,9 @@ class LivretWindow(tk.Toplevel):
             draw_cover_page(c)
             c.showPage()
             # split texte en deux moitiés pour remplir haut droit / bas droit
-            mid = (len(texts) + 1) // 2
-            zone_up = texts[:mid]
-            zone_down = texts[mid:]
+            mid = (len(formatted_lines) + 1) // 2
+            zone_up = formatted_lines[:mid]
+            zone_down = formatted_lines[mid:]
             # Page 2 : Quart haut droit (zone origin_x = qw, origin_y = qh)
             draw_rotated_zone(c, origin_x=qw, origin_y= qh, zone_w=qw, zone_h=qh, lines_text=zone_up)
             c.showPage()
@@ -937,9 +985,9 @@ class LivretWindow(tk.Toplevel):
             c.showPage()
             # Répartition simple du contenu : on découpe en 6 morceaux pour afficher ensuite
             # (zones 2-4 en haut, 6-8 en bas). On évite rotation compliquée ici mais on peut pivoter bas si besoin.
-            n = max(1, len(texts))
+            n = max(1, len(formatted_lines))
             per_block = max(1, n // 6)
-            idx = 0
+            blk = formatted_lines[idx: idx+per_block]
             # zones haut 2,3,4
             for col in (1,2,3):
                 blk = texts[idx: idx+per_block]
