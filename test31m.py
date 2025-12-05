@@ -745,7 +745,7 @@ class KLMEditor(tk.Tk):
                 grouped[get_letter(c['name'])].append(c)
         for letter in sorted(grouped.keys()):
             row = TableRow()
-            cell = TableCell(numbercolumnsSpanned="2")
+            cell = TableCell(numbercolumnsspanned="2")
             cell.addElement(P(text=f"— {letter} —"))
             row.addElement(cell)
             table.addElement(row)
