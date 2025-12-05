@@ -8,13 +8,6 @@
                             klm novembre 2025
 """
 
-#------------------------ Plan du script -----------------------------
-# --------1-------- CONFIGURATION EDITABLE ---------------------------
-# --------2----------------- UTILITAIRES -----------------------------
-# --------3-------- Helpers PDF / Imposition -------------------------
-# --------4----------- LivretWindow (Modal) --------------------------
-# --------5------- Sélecteur du type de pliage -----------------------
-
 import os
 import sys
 import re
@@ -52,7 +45,7 @@ MIN_SPACES = 3
 
 APP_WINDOW_TITLE = "Edirep"
 MAIN_HEADER_TEXT = "Éditeur de répertoire téléphonique"
-STATUS_DEFAULT_TEXT = "KLM - Edirep - v3.4.2"
+STATUS_DEFAULT_TEXT = "KLM - Edirep - v3.6.0"
 
 BUTTON_LABELS = {
     'import_vcf': "Importer VCF",
@@ -70,7 +63,7 @@ PDF_DEFAULTS = {
     'date_text': "Édité le {}",
     'cover_line1': '',
     'cover_line2': '',
-    'back_line1': 'Édité avec Repedit v.3.4.2',
+    'back_line1': 'Édité avec Edirep v.3.6.0',
     'back_line2': 'KLM Software',
 }
 
@@ -200,7 +193,7 @@ def make_colored_button(parent, text, command, bg=BTN_BG, fg=BTN_FG, active_bg=B
     lbl.configure(takefocus=1)
     return lbl
 
-# ---------------- Helpers A4 / pliage ----------------
+# ---------------- Helpers PDF / Imposition ----------------
 
 def get_fold_lines(fold):
     """Retourne lignes de pliure relatives (0..1)."""
@@ -211,6 +204,75 @@ def get_fold_lines(fold):
     if fold == 8:
         return [(0.25, 0, 0.25, 1), (0.5, 0, 0.5, 1), (0.75, 0, 0.75, 1), (0, 0.5, 1, 0.5)]
     return []
+
+def make_logical_half_pages(contacts_enabled, contact_pt, heading_pt, page_h_pts, top_margin_pts, bottom_margin_pts):
+    """
+    Constitue des "moitiés logiques" (demi-page) contenant en-têtes de lettre et lignes de contact.
+    Renvoie (halves, line_height).
+    """
+    grouped = defaultdict(list)
+    for ct in contacts_enabled:
+        grouped[get_letter(ct['name'])].append(ct)
+    for k in grouped:
+        grouped[k].sort(key=lambda x: x['name'].lower())
+    
+    line_height = int(contact_pt * 1.05)
+    usable = page_h_pts - top_margin_pts - bottom_margin_pts
+    halves = []
+    curr = []
+    used = 0
+
+    def push():
+        nonlocal curr, used
+        if curr:
+            halves.append(curr)
+        curr = []
+        used = 0
+
+    for letter in sorted(grouped.keys()):
+        heading_h = int(heading_pt * 1.0)
+        pre_gap = max(int(heading_pt * 0.4), 2)
+        if used + pre_gap + heading_h > usable * 0.75 and used != 0:
+            push()
+        if used == 0 and heading_h + pre_gap > usable:
+            curr.append(('H', letter))
+            used += heading_h
+        else:
+            if used != 0:
+                curr.append(('B',))
+                used += pre_gap
+            curr.append(('H', letter))
+            used += heading_h
+        for ct in grouped[letter]:
+            if used + line_height > usable:
+                push()
+                curr.append(('H', letter))
+                used += heading_h
+            curr.append(('L', f"{ct['name']}|||{ct['number']}"))
+            used += line_height
+    if curr:
+        halves.append(curr)
+    return halves, line_height
+
+def imposition_sequence(n_halves):
+    """
+    Renvoie une séquence d'imposition pour n_halves logiques (1-indexed).
+    Sortie : list of pairs (left_half_index, right_half_index) — indices 1..n_halves (0 = blank)
+    """
+    P = n_halves
+    rem = P % 4
+    if rem != 0:
+        P += (4 - rem)
+    sheets = P // 4
+    out = []
+    for i in range(sheets):
+        Lf = P - 2 * i
+        Rf = 1 + 2 * i
+        out.append((Lf if Lf <= n_halves else 0, Rf if Rf <= n_halves else 0))
+        Lb = 2 + 2 * i
+        Rb = P - 1 - 2 * i
+        out.append((Lb if Lb <= n_halves else 0, Rb if Rb <= n_halves else 0))
+    return out
 
 # ================================ MAIN APP ==================================
 
@@ -261,9 +323,7 @@ class KLMEditor(tk.Tk):
             img = Image.open(self.logo_path).convert("RGBA")
         except Exception:
             return
-        # central crop then create two versions
         w, h = img.size
-        # light crop
         left = int(w * LOGO_CROP_LIGHT[0])
         top = int(h * LOGO_CROP_LIGHT[1])
         right = int(w * (1.0 - LOGO_CROP_LIGHT[2]))
@@ -279,7 +339,6 @@ class KLMEditor(tk.Tk):
             self.logo_normal = ImageTk.PhotoImage(img_light)
         except Exception:
             self.logo_normal = None
-        # inverted
         try:
             rgb = img.convert("RGB")
             inverted = ImageOps.invert(rgb)
@@ -305,7 +364,6 @@ class KLMEditor(tk.Tk):
             self.logo_inverted = None
 
     def create_interface(self):
-        # top bar
         self.button_bar = tk.Frame(self, bg='#1976d2', pady=6)
         self.button_bar.pack(fill='x')
         tk.Label(self.button_bar, text=MAIN_HEADER_TEXT, font=('Helvetica', 14, 'bold'),
@@ -329,7 +387,6 @@ class KLMEditor(tk.Tk):
         tk.Checkbutton(self.button_bar, text='🌙', variable=self.dark, command=self.apply_theme,
                        bg='#1976d2', fg='#d0d0d0', selectcolor='#1976d2', relief='flat').pack(side='right', padx=8)
 
-        # main panes
         main_pw = tk.PanedWindow(self, orient='horizontal')
         main_pw.pack(fill='both', expand=True, pady=6)
         left_frame = tk.Frame(main_pw)
@@ -368,7 +425,7 @@ class KLMEditor(tk.Tk):
         self.status_label.pack(side='left', padx=6)
         self.version_label = tk.Label(self.status_bar, text=STATUS_DEFAULT_TEXT, bg='#1976d2', fg='#d0d0d0')
         self.version_label.pack(side='right', padx=6)
-    # ---------- Mousewheel handlers ----------
+
     def _on_mousewheel_left(self, event):
         if sys.platform.startswith('linux'):
             if event.num == 4:
@@ -387,7 +444,6 @@ class KLMEditor(tk.Tk):
         else:
             self.preview_text.yview_scroll(int(-1 * (event.delta / 120)), 'units')
 
-    # ---------- Theme / mode sombre ----------
     def apply_theme(self):
         dark = self.dark.get()
         try:
@@ -428,7 +484,6 @@ class KLMEditor(tk.Tk):
         self.update_left_list_fonts()
         self.update_preview()
 
-    # ---------- Import / exports / UI helpers ----------
     def load_vcf(self):
         path = filedialog.askopenfilename(filetypes=[('Fichier VCF', '*.vcf')])
         if not path:
@@ -618,7 +673,6 @@ class KLMEditor(tk.Tk):
         except Exception:
             pass
 
-    # ---------- Simple Exports (TXT/ODT/ODS) ----------
     def export_txt(self):
         if not self.contacts:
             messagebox.showinfo('TXT Export', 'Aucun contact.')
@@ -675,7 +729,6 @@ class KLMEditor(tk.Tk):
         path = filedialog.asksaveasfilename(defaultextension='.ods', filetypes=[('ODS', '*.ods')])
         if not path:
             return
-        
         doc = OpenDocumentSpreadsheet()
         table = Table(name="Contacts")
         doc.spreadsheet.addElement(table)
@@ -707,16 +760,7 @@ class KLMEditor(tk.Tk):
         doc.save(path)
         messagebox.showinfo('ODS Export', f'Fichier ODS généré : {path}')
 
-    def export_pdf_livret(self):
-        if not REPORTLAB_AVAILABLE:
-            messagebox.showinfo('PDF Livret', "Installe reportlab (pip install reportlab) pour générer le PDF.")
-            return
-        if not self.contacts:
-            messagebox.showinfo('PDF Livret', "Aucun contact disponible.")
-            return
-        LivretWindow(self, self.contacts, logo_path=self.logo_path)
-
-# ------------------------- LivretWindow (Modal) -------------------------
+# ========================= LIVRETWINDOW =========================
 
 class LivretWindow(tk.Toplevel):
     def __init__(self, master, contacts, logo_path=None):
@@ -726,23 +770,26 @@ class LivretWindow(tk.Toplevel):
         self.grab_set()
         self.contacts = contacts
         self.logo_path = logo_path
-        # fenêtre auto-size : tu peux forcer avec self.geometry('620x520') si tu veux
-        # Sélecteur pliage + aperçu
+        
         tk.Label(self, text='Titre (ligne 1) :').pack(anchor='w', padx=8, pady=(10,2))
         self.title_var = tk.StringVar(value=PDF_DEFAULTS['title_line1'])
         tk.Entry(self, textvariable=self.title_var, width=72).pack(padx=8)
+        
         tk.Label(self, text='Ligne 2 (nom) :').pack(anchor='w', padx=8, pady=(8,2))
         self.name_var = tk.StringVar(value=PDF_DEFAULTS['title_line2'])
         tk.Entry(self, textvariable=self.name_var, width=72).pack(padx=8)
+        
         tk.Label(self, text='Ligne 3 (nombre contacts) :').pack(anchor='w', padx=8, pady=(8,2))
         self.count_var = tk.StringVar(value=PDF_DEFAULTS['count_text'].format(self._enabled_count()))
-        tk.Entry(self, textvariable=self.count_var, width=72, state='disable').pack(padx=8)
+        tk.Entry(self, textvariable=self.count_var, width=72, state='readonly', readonlybackground='#f0f0f0', fg='black').pack(padx=8)
+        
         tk.Label(self, text='Ligne 4 (date) :').pack(anchor='w', padx=8, pady=(8,2))
         self.date_var = tk.StringVar(value=PDF_DEFAULTS['date_text'].format(datetime.now().strftime('%d %B %Y')))
-        tk.Entry(self, textvariable=self.date_var, width=72, state='disable').pack(padx=8)
+        tk.Entry(self, textvariable=self.date_var, width=72, state='readonly', readonlybackground='#f0f0f0', fg='black').pack(padx=8)
+        
         tk.Label(self, text='(PDF A4 en mode paysage)').pack(padx=8, pady=8)
 
-        tk.Label(self, text="Type de pliage (traits de pliure) :").pack(anchor='w', padx=8, pady=(4,2))
+        tk.Label(self, text="Type de pliage :").pack(anchor='w', padx=8, pady=(4,2))
         self.fold_var = tk.IntVar(value=2)
         fold_choices = [2,4,8]
         fold_menu = ttk.OptionMenu(self, self.fold_var, self.fold_var.get(), *fold_choices)
@@ -750,16 +797,17 @@ class LivretWindow(tk.Toplevel):
 
         self.canvas_width = 380
         self.canvas_height = 260
-        self.illustration = tk.Canvas(self, width=self.canvas_width, height=self.canvas_height, bg="white", highlightthickness=1, highlightbackground="#888")
+        self.illustration = tk.Canvas(self, width=self.canvas_width, height=self.canvas_height, 
+                                      bg="white", highlightthickness=1, highlightbackground="#888")
         self.illustration.pack(pady=10)
         self.update_illustration()
-
         self.fold_var.trace_add("write", lambda *a: self.update_illustration())
 
         btn_frame = tk.Frame(self)
         btn_frame.pack(pady=(6,12))
         ttk.Button(btn_frame, text='Générer PDF Livret', command=self.generate_pdf, style=TTK_STYLE_NAME).pack(side='left', padx=8)
         ttk.Button(btn_frame, text='Annuler', command=self.destroy).pack(side='left', padx=8)
+        
         info = "Logo trouvé" if (self.logo_path and os.path.exists(self.logo_path)) else "Aucun logo (logo.png manquant)"
         tk.Label(self, text=info, fg='gray').pack(pady=(0,8))
 
@@ -778,441 +826,371 @@ class LivretWindow(tk.Toplevel):
         return sum(1 for c in self.contacts if c.get('enabled') and c['enabled'].get())
 
     def generate_pdf(self):
-            fold_type = self.fold_var.get()
-            lines = get_fold_lines(fold_type)
-            if not REPORTLAB_AVAILABLE:
-                messagebox.showerror('reportlab manquant', "Installe reportlab (pip install reportlab) pour générer le PDF.")
-                return
-            path = filedialog.asksaveasfilename(defaultextension='.pdf', filetypes=[('PDF', '*.pdf')])
-            if not path:
-                return
-            contacts_enabled = [c for c in self.contacts if c.get('enabled') and c['enabled'].get()]
-            if not contacts_enabled:
-                messagebox.showinfo('Aucun contact', 'Aucun contact sélectionné.')
-                return
+        fold_type = self.fold_var.get()
+        if not REPORTLAB_AVAILABLE:
+            messagebox.showerror('reportlab manquant', "Installe reportlab (pip install reportlab) pour générer le PDF.")
+            return
+        path = filedialog.asksaveasfilename(defaultextension='.pdf', filetypes=[('PDF', '*.pdf')])
+        if not path:
+            return
+        contacts_enabled = [c for c in self.contacts if c.get('enabled') and c['enabled'].get()]
+        if not contacts_enabled:
+            messagebox.showinfo('Aucun contact', 'Aucun contact sélectionné.')
+            return
 
-            # Préparer le document
-            c = canvas.Canvas(path, pagesize=landscape(A4))
-            pw, ph = landscape(A4)
+        c = canvas.Canvas(path, pagesize=landscape(A4))
+        pw, ph = landscape(A4)
+        
+        if fold_type == 2:
+            self._generate_fold_2(c, pw, ph, contacts_enabled)
+        elif fold_type == 4:
+            self._generate_fold_4(c, pw, ph, contacts_enabled)
+        elif fold_type == 8:
+            self._generate_fold_8(c, pw, ph, contacts_enabled)
+        else:
+            messagebox.showerror("Pliage inconnu", f"Type de pliage inconnu: {fold_type}")
+            return
 
-            # Grouper les contacts par lettre alphabétique
-            grouped = defaultdict(list)
-            for ct in contacts_enabled:
-                letter = get_letter(ct['name'])
-                grouped[letter].append(ct)
+        try:
+            c.save()
+            messagebox.showinfo("PDF généré", f"Fichier PDF généré : {path}")
+            self.destroy()
+        except Exception as e:
+            messagebox.showerror("Erreur écriture PDF", str(e))
 
-            # Calculer la longueur max des noms pour aligner les numéros
-            max_name_len = 0
-            for letter in grouped:
-                for ct in grouped[letter]:
-                    max_name_len = max(max_name_len, len(ct['name']))
-            
-            # Créer une liste avec les lettres et les contacts
-            # Format : tuple (type, contenu, nom, numero, style) pour permettre alignement
-            formatted_lines = []
-            for letter in sorted(grouped.keys()):
-                # Espace avant le groupe (sauf pour le premier)
-                if formatted_lines:
-                    formatted_lines.append(('space', '', '', '', {}))
-                
-                # Lettre en gras et grande
-                formatted_lines.append(('letter', letter, '', '', {'bold': True, 'size': 16}))
-                
-                # Contacts du groupe
-                for ct in sorted(grouped[letter], key=lambda x: x['name'].lower()):
-                    formatted_lines.append(('contact', '', ct['name'], ct['number'], {'size': 10}))
-                
-                # Espace après le groupe
-                formatted_lines.append(('space', '', '', '', {}))
+    def _generate_fold_2(self, c, pw, ph, contacts_enabled):
+        """
+        Pliage 2 : Simple - Couverture + demi-pages successives
+        """
+        demi_w = pw / 2.0
+        ui_heading = FIXED_LETTER_SIZE
+        ui_contact = FIXED_CONTACT_SIZE
+        pdf_contact_pt = max(8, int(ui_contact * 0.9))
+        pdf_heading_pt = max(12, int(ui_heading * 0.9))
 
-            # ----- Fonctions utilitaires locales -----
-            def draw_text_block(cobj, x, y, w, h, formatted_lines, leading=None, font_size=10):
-                """
-                Dessine un bloc de texte avec support pour les lettres alphabétiques.
-                formatted_lines = liste de tuples (type, text, name, number, style)
-                """
-                if leading is None:
-                    leading = 12
-                
-                cur_y = y + h - leading
-                
-                # Calculer position d'alignement des numéros
-                # Estimer largeur caractère : environ 0.6 * font_size pour Helvetica
-                char_width = font_size * 0.6
-                name_width = max_name_len * char_width
-                number_x = x + name_width + 10  # 10 points de marge
-                
-                for line_type, text, name, number, style in formatted_lines:
-                    if cur_y < y + 4:  # Plus de place
-                        break
-                    
-                    if line_type == 'space':
-                        # Espace vide
-                        cur_y -= leading * 0.5
-                        continue
-                    
-                    elif line_type == 'letter':
-                        # Lettre alphabétique : grande et en gras
-                        size = style.get('size', 16)
-                        cobj.setFont("Helvetica-Bold", size)
-                        cobj.drawString(x + 4, cur_y, text)
-                        cur_y -= leading * 1.2
-                    
-                    elif line_type == 'contact':
-                        # Contact : nom à gauche, numéro aligné
-                        size = style.get('size', font_size)
-                        cobj.setFont("Helvetica", size)
-                        cobj.drawString(x + 4, cur_y, name)
-                        cobj.drawString(number_x, cur_y, number)
-                        cur_y -= leading
+        left_margin = 12 * mm
+        right_margin = 12 * mm
+        top_margin = 18 * mm + pdf_heading_pt * 0.4
+        bottom_margin = 12 * mm
 
-            def draw_cover_page(cobj, x, y, w, h):
-                """Dessine la page de couverture dans une zone donnée"""
-                cobj.setFont("Helvetica-Bold", 20)
-                center_x = x + w/2
-                center_y = y + h * 0.75
-                cobj.drawCentredString(center_x, center_y, self.title_var.get())
-                cobj.setFont("Helvetica", 12)
-                cobj.drawCentredString(center_x, center_y - 30*mm, self.name_var.get())
-                cobj.drawCentredString(center_x, center_y - 50*mm, PDF_DEFAULTS['count_text'].format(len(contacts_enabled)))
-                cobj.drawCentredString(center_x, center_y - 65*mm, self.date_var.get())
-                cobj.setFont("Helvetica-Bold", 10)
-                cobj.drawCentredString(center_x, y + h * 0.18, COVER_TITLES.get('cover_line1', ''))
-                cobj.drawCentredString(center_x, y + h * 0.14, COVER_TITLES.get('cover_line2', ''))
-                try:
-                    if self.logo_path and os.path.exists(self.logo_path):
-                        logo_w = 40 * mm
-                        logo_h = 40 * mm
-                        logo_x = center_x - (logo_w/2)
-                        logo_y = y + h * 0.48
-                        cobj.drawImage(self.logo_path, logo_x, logo_y, width=logo_w, height=logo_h, preserveAspectRatio=True, mask='auto')
-                except Exception:
-                    pass
+        # --- PAGE 1 : COUVERTURE (droite) + 4ème DE COUV (gauche) ---
+        left_center_x = demi_w / 2.0
+        right_center_x = demi_w + (demi_w / 2.0)
+        center_y = ph * 0.75
 
-            def draw_back_cover_page(cobj, x, y, w, h):
-                """Dessine la 4ème de couverture dans une zone donnée"""
-                center_x = x + w/2
-                cobj.setFont("Helvetica-Bold", 12)
-                cobj.drawCentredString(center_x, y + h * 0.72, COVER_TITLES.get('back_line1', ''))
-                try:
-                    if self.logo_path and os.path.exists(self.logo_path):
-                        logo_w = 40 * mm
-                        logo_h = 40 * mm
-                        logo_x = center_x - (logo_w/2)
-                        logo_y = y + h * 0.52
-                        cobj.drawImage(self.logo_path, logo_x, logo_y, width=logo_w, height=logo_h, preserveAspectRatio=True, mask='auto')
-                except Exception:
-                    pass
-                cobj.setFont("Helvetica-Bold", 12)
-                cobj.drawCentredString(center_x, y + h * 0.45, COVER_TITLES.get('back_line2', ''))
+        # Couverture (droite)
+        c.setFont("Helvetica-Bold", 18)
+        c.drawCentredString(right_center_x, center_y, self.title_var.get())
+        c.setFont("Helvetica", 12)
+        c.drawCentredString(right_center_x, center_y - 30*mm, self.name_var.get())
+        c.drawCentredString(right_center_x, center_y - 50*mm, self.count_var.get())
+        c.drawCentredString(right_center_x, center_y - 65*mm, self.date_var.get())
+        c.setFont("Helvetica-Bold", 11)
+        c.drawCentredString(right_center_x, ph * 0.18, COVER_TITLES.get('cover_line1', ''))
+        c.drawCentredString(right_center_x, ph * 0.14, COVER_TITLES.get('cover_line2', ''))
 
-            def draw_zone_rotated(cobj, x, y, w, h, content, rotation, font_size=10):
-                """
-                Dessine du contenu dans une zone avec rotation.
-                rotation: -90 (antihoraire) ou 90 (horaire) ou 180
-                """
-                cobj.saveState()
-                
-                if rotation == 90:  # Rotation horaire
-                    cobj.translate(x + w, y)
-                    cobj.rotate(90)
-                    draw_text_block(cobj, 4, 4, h - 8, w - 8, content, leading=font_size*1.2, font_size=font_size)
-                elif rotation == -90:  # Rotation antihoraire
-                    cobj.translate(x, y + h)
-                    cobj.rotate(-90)
-                    draw_text_block(cobj, 4, 4, h - 8, w - 8, content, leading=font_size*1.2, font_size=font_size)
-                elif rotation == 180:
-                    cobj.translate(x + w, y + h)
-                    cobj.rotate(180)
-                    draw_text_block(cobj, 4, 4, w - 8, h - 8, content, leading=font_size*1.2, font_size=font_size)
-                else:  # 0 degré
-                    draw_text_block(cobj, x + 4, y + 4, w - 8, h - 8, content, leading=font_size*1.2, font_size=font_size)
-                
-                cobj.restoreState()
+        # 4ème de couv (gauche)
+        c.setFont("Helvetica-Bold", 12)
+        c.drawCentredString(left_center_x, ph * 0.72, COVER_TITLES.get('back_line1', ''))
+        try:
+            if self.logo_path and os.path.exists(self.logo_path):
+                logo_w = 40 * mm
+                logo_h = 40 * mm
+                logo_x = left_center_x - (logo_w / 2.0)
+                logo_y = ph * 0.52
+                c.drawImage(self.logo_path, logo_x, logo_y, width=logo_w, height=logo_h,
+                           preserveAspectRatio=True, mask='auto')
+        except Exception:
+            pass
+        c.setFont("Helvetica-Bold", 12)
+        c.drawCentredString(left_center_x, ph * 0.45, COVER_TITLES.get('back_line2', ''))
+        c.showPage()
 
-            def draw_small_cover(cobj, x, y, w, h, rotation):
-                """Dessine une couverture miniature (pour pliages 4 et 8)"""
-                cobj.saveState()
-                
-                if rotation == 90:
-                    cobj.translate(x + w, y)
-                    cobj.rotate(90)
-                    cx, cy = h/2, w/2
-                    cobj.setFont("Helvetica-Bold", 14)
-                    cobj.drawCentredString(cx, cy + 15, self.title_var.get())
-                    cobj.setFont("Helvetica", 9)
-                    cobj.drawCentredString(cx, cy, self.name_var.get())
-                elif rotation == -90:
-                    cobj.translate(x, y + h)
-                    cobj.rotate(-90)
-                    cx, cy = h/2, w/2
-                    cobj.setFont("Helvetica-Bold", 14)
-                    cobj.drawCentredString(cx, cy + 15, self.title_var.get())
-                    cobj.setFont("Helvetica", 9)
-                    cobj.drawCentredString(cx, cy, self.name_var.get())
-                elif rotation == 180:
-                    cobj.translate(x + w, y + h)
-                    cobj.rotate(180)
-                    cx, cy = w/2, h/2
-                    cobj.setFont("Helvetica-Bold", 14)
-                    cobj.drawCentredString(cx, cy + 15, self.title_var.get())
-                    cobj.setFont("Helvetica", 9)
-                    cobj.drawCentredString(cx, cy, self.name_var.get())
-                else:
-                    cx, cy = x + w/2, y + h/2
-                    cobj.setFont("Helvetica-Bold", 14)
-                    cobj.drawCentredString(cx, cy + 15, self.title_var.get())
-                    cobj.setFont("Helvetica", 9)
-                    cobj.drawCentredString(cx, cy, self.name_var.get())
-                
-                cobj.restoreState()
+        # --- PAGES INTÉRIEURES : Remplir demi-pages successivement ---
+        # Grouper les contacts par lettre
+        grouped = defaultdict(list)
+        for ct in contacts_enabled:
+            grouped[get_letter(ct['name'])].append(ct)
+        for k in grouped:
+            grouped[k].sort(key=lambda x: x['name'].lower())
 
-            def draw_small_back(cobj, x, y, w, h, rotation):
-                """Dessine une 4ème de couverture miniature"""
-                cobj.saveState()
-                
-                if rotation == 90:
-                    cobj.translate(x + w, y)
-                    cobj.rotate(90)
-                    cx, cy = h/2, w/2
-                    cobj.setFont("Helvetica-Bold", 10)
-                    cobj.drawCentredString(cx, cy, COVER_TITLES.get('back_line1', ''))
-                elif rotation == -90:
-                    cobj.translate(x, y + h)
-                    cobj.rotate(-90)
-                    cx, cy = h/2, w/2
-                    cobj.setFont("Helvetica-Bold", 10)
-                    cobj.drawCentredString(cx, cy, COVER_TITLES.get('back_line1', ''))
-                elif rotation == 180:
-                    cobj.translate(x + w, y + h)
-                    cobj.rotate(180)
-                    cx, cy = w/2, h/2
-                    cobj.setFont("Helvetica-Bold", 10)
-                    cobj.drawCentredString(cx, cy, COVER_TITLES.get('back_line1', ''))
-                else:
-                    cx, cy = x + w/2, y + h/2
-                    cobj.setFont("Helvetica-Bold", 10)
-                    cobj.drawCentredString(cx, cy, COVER_TITLES.get('back_line1', ''))
-                
-                cobj.restoreState()
-
-            # ----------------------------
-            # EXPORT 2 PLIS - IMPOSITION CAHIER
-            # ----------------------------
-            def export_fold_2():
-                """
-                Pliage 2 : Imposition en cahier
-                Structure : 2 feuilles A4 = 8 pages
-                Page 1 = Couv, Page 2 = VIDE, Pages 3-6 = Contenu, Page 7 = VIDE, Page 8 = 4ème
-                
-                Feuille A (dessous) - RECTO : page 7 (gauche) | page 2 (droite)
-                Feuille A (dessous) - VERSO : page 1-Couv (gauche) | page 8-4ème (droite)
-                Feuille B (dessus) - RECTO : page 3 (gauche) | page 6 (droite)
-                Feuille B (dessus) - VERSO : page 4 (gauche) | page 5 (droite)
-                """
-                
-                # Diviser le contenu en pages (4 pages de contenu disponibles : 3,4,5,6)
-                lines_per_page = 50  # Estimation
-                
-                all_pages = []
-                current_page = []
-                line_count = 0
-                
-                for line in formatted_lines:
-                    current_page.append(line)
-                    if line[0] != 'space':
-                        line_count += 1
-                        if line_count >= lines_per_page:
-                            all_pages.append(current_page)
-                            current_page = []
-                            line_count = 0
-                
-                if current_page:
-                    all_pages.append(current_page)
-                
-                # Organiser en groupes de 4 pages (pages 3-4-5-6 de chaque cahier)
-                content_groups = []
-                for i in range(0, len(all_pages), 4):
-                    group = all_pages[i:i+4]
-                    # Compléter avec des pages vides si nécessaire
-                    while len(group) < 4:
-                        group.append([])
-                    content_groups.append(group)
-                
-                # Pour chaque groupe (cahier de 8 pages)
-                for group_idx, pages_content in enumerate(content_groups):
-                    # pages_content[0] = page 3
-                    # pages_content[1] = page 4
-                    # pages_content[2] = page 5
-                    # pages_content[3] = page 6
-                    
-                    # FEUILLE A - RECTO : page 7 (gauche - VIDE) | page 2 (droite - VIDE)
-                    # Tout vide, on ne dessine rien
-                    c.showPage()
-                    
-                    # FEUILLE A - VERSO : page 1 (gauche) | page 8 (droite)
-                    if group_idx == 0:
-                        # Premier cahier : Couverture et 4ème de couv
-                        draw_cover_page(c, pw/2, 0, pw/2, ph)  # page 1 (droite devient gauche au verso)
-                        draw_back_cover_page(c, 0, 0, pw/2, ph)  # page 8 (gauche devient droite au verso)
-                    c.showPage()
-                    
-                    # FEUILLE B - RECTO : page 3 (gauche) | page 6 (droite)
-                    draw_text_block(c, 12*mm, 12*mm, pw/2 - 24*mm, ph - 24*mm, pages_content[0])  # page 3
-                    draw_text_block(c, pw/2 + 12*mm, 12*mm, pw/2 - 24*mm, ph - 24*mm, pages_content[3])  # page 6
-                    c.showPage()
-                    
-                    # FEUILLE B - VERSO : page 4 (gauche) | page 5 (droite)
-                    draw_text_block(c, pw/2 + 12*mm, 12*mm, pw/2 - 24*mm, ph - 24*mm, pages_content[1])  # page 4 (droite devient gauche)
-                    draw_text_block(c, 12*mm, 12*mm, pw/2 - 24*mm, ph - 24*mm, pages_content[2])  # page 5 (gauche devient droite)
-                    c.showPage()
-
-            # ----------------------------
-            # EXPORT 4 PLIS
-            # ----------------------------
-            def export_fold_4():
-                """
-                8 pages sur 1 feuille A4 paysage (recto/verso)
-                RECTO: haut=(5 ↺, 8 ↻) bas=(4 ↺, 1 ↻)
-                VERSO: haut=(7 ↻, 6 ↻) bas=(2 ↻, 3 ↻)
-                Page 1=Couv, Page 8=4ème, Pages 2-7=contenu
-                """
-                qw = pw / 2.0  # largeur quart
-                qh = ph / 2.0  # hauteur quart
-                
-                # Diviser le contenu en 6 pages intérieures
-                n_pages = 6
-                per_page = max(1, len(formatted_lines) // n_pages)
-                pages_content = []
-                idx = 0
-                for i in range(n_pages):
-                    end_idx = idx + per_page if i < n_pages - 1 else len(formatted_lines)
-                    pages_content.append(formatted_lines[idx:end_idx])
-                    idx = end_idx
-                
-                # RECTO
-                # Haut gauche: Page 5 (contenu page 4) - 90° antihoraire
-                if len(pages_content) >= 4:
-                    draw_zone_rotated(c, 0, qh, qw, qh, pages_content[3], -90, font_size=9)
-                
-                # Haut droite: Page 8 (4ème de couv) - 90° horaire
-                draw_small_back(c, qw, qh, qw, qh, 90)
-                
-                # Bas gauche: Page 4 (contenu page 3) - 90° antihoraire
-                if len(pages_content) >= 3:
-                    draw_zone_rotated(c, 0, 0, qw, qh, pages_content[2], -90, font_size=9)
-                
-                # Bas droite: Page 1 (Couverture) - 90° horaire
-                draw_small_cover(c, qw, 0, qw, qh, 90)
-                
-                c.showPage()
-                
-                # VERSO
-                # Haut gauche: Page 7 (contenu page 6) - 90° horaire
-                if len(pages_content) >= 6:
-                    draw_zone_rotated(c, 0, qh, qw, qh, pages_content[5], 90, font_size=9)
-                
-                # Haut droite: Page 6 (contenu page 5) - 90° horaire
-                if len(pages_content) >= 5:
-                    draw_zone_rotated(c, qw, qh, qw, qh, pages_content[4], 90, font_size=9)
-                
-                # Bas gauche: Page 2 (contenu page 1) - 90° horaire
-                if len(pages_content) >= 1:
-                    draw_zone_rotated(c, 0, 0, qw, qh, pages_content[0], 90, font_size=9)
-                
-                # Bas droite: Page 3 (contenu page 2) - 90° horaire
-                if len(pages_content) >= 2:
-                    draw_zone_rotated(c, qw, 0, qw, qh, pages_content[1], 90, font_size=9)
-                
-                c.showPage()
-
-            # ----------------------------
-            # EXPORT 8 PLIS
-            # ----------------------------
-            def export_fold_8():
-                """
-                16 pages sur 1 feuille A4 paysage (recto/verso)
-                4 colonnes × 2 lignes
-                RECTO haut (180°): 9-8-5-12 / bas (0°): 16-1-4-13
-                VERSO haut (180°): 11-6-7-10 / bas (0°): 14-3-2-15
-                Page 1=Couv, Page 2=vide, Pages 3-15=contenu, Page 16=4ème
-                """
-                zw = pw / 4.0  # largeur zone
-                zh = ph / 2.0  # hauteur zone
-                
-                # Diviser le contenu en 13 pages (on saute la page 2)
-                n_pages = 13
-                per_page = max(1, len(formatted_lines) // n_pages)
-                pages_content = []
-                idx = 0
-                for i in range(n_pages):
-                    end_idx = idx + per_page if i < n_pages - 1 else len(formatted_lines)
-                    pages_content.append(formatted_lines[idx:end_idx])
-                    idx = end_idx
-                
-                # RECTO
-                # Ligne du haut (180°): colonnes 0,1,2,3 = pages 9,8,5,12
-                if len(pages_content) >= 7:
-                    draw_zone_rotated(c, 0*zw, zh, zw, zh, pages_content[6], 180, font_size=7)
-                if len(pages_content) >= 6:
-                    draw_zone_rotated(c, 1*zw, zh, zw, zh, pages_content[5], 180, font_size=7)
-                if len(pages_content) >= 3:
-                    draw_zone_rotated(c, 2*zw, zh, zw, zh, pages_content[2], 180, font_size=7)
-                if len(pages_content) >= 10:
-                    draw_zone_rotated(c, 3*zw, zh, zw, zh, pages_content[9], 180, font_size=7)
-                
-                # Ligne du bas (0°): colonnes 0,1,2,3 = pages 16,1,4,13
-                draw_small_back(c, 0*zw, 0, zw, zh, 0)
-                draw_small_cover(c, 1*zw, 0, zw, zh, 0)
-                if len(pages_content) >= 2:
-                    draw_zone_rotated(c, 2*zw, 0, zw, zh, pages_content[1], 0, font_size=7)
-                if len(pages_content) >= 11:
-                    draw_zone_rotated(c, 3*zw, 0, zw, zh, pages_content[10], 0, font_size=7)
-                
-                c.showPage()
-                
-                # VERSO
-                # Ligne du haut (180°): colonnes 0,1,2,3 = pages 11,6,7,10
-                if len(pages_content) >= 9:
-                    draw_zone_rotated(c, 0*zw, zh, zw, zh, pages_content[8], 180, font_size=7)
-                if len(pages_content) >= 4:
-                    draw_zone_rotated(c, 1*zw, zh, zw, zh, pages_content[3], 180, font_size=7)
-                if len(pages_content) >= 5:
-                    draw_zone_rotated(c, 2*zw, zh, zw, zh, pages_content[4], 180, font_size=7)
-                if len(pages_content) >= 8:
-                    draw_zone_rotated(c, 3*zw, zh, zw, zh, pages_content[7], 180, font_size=7)
-                
-                # Ligne du bas (0°): colonnes 0,1,2,3 = pages 14,3,2,15
-                if len(pages_content) >= 12:
-                    draw_zone_rotated(c, 0*zw, 0, zw, zh, pages_content[11], 0, font_size=7)
-                if len(pages_content) >= 1:
-                    draw_zone_rotated(c, 1*zw, 0, zw, zh, pages_content[0], 0, font_size=7)
-                # Page 2 = VIDE (on ne dessine rien)
-                if len(pages_content) >= 13:
-                    draw_zone_rotated(c, 3*zw, 0, zw, zh, pages_content[12], 0, font_size=7)
-                
-                c.showPage()
-
-            # ----------------------------
-            # Choix export selon pliage
-            # ----------------------------
-            if fold_type == 2:
-                export_fold_2()
-            elif fold_type == 4:
-                export_fold_4()
-            elif fold_type == 8:
-                export_fold_8()
+        # Variables pour le remplissage
+        usable_height = ph - top_margin - bottom_margin
+        line_height = int(pdf_contact_pt * 1.07)
+        heading_height = int(pdf_heading_pt * 1.15)
+        
+        current_x = 0  # 0 = gauche, demi_w = droite
+        current_y = ph - top_margin
+        
+        def move_to_next_half():
+            nonlocal current_x, current_y
+            if current_x == 0:
+                # Passer à la demi-page droite
+                current_x = demi_w
+                current_y = ph - top_margin
             else:
-                messagebox.showerror("Pliage inconnu", f"Type de pliage inconnu: {fold_type}")
+                # Nouvelle page A4
+                c.showPage()
+                current_x = 0
+                current_y = ph - top_margin
+        
+        def check_space_and_draw(needed_height):
+            nonlocal current_y
+            if current_y - needed_height < bottom_margin:
+                move_to_next_half()
+                current_y = ph - top_margin
+            return True
+        
+        # Dessiner les contacts
+        for letter in sorted(grouped.keys()):
+            # Vérifier si on a assez de place pour le titre de lettre
+            check_space_and_draw(heading_height)
+            
+            inner_left = current_x + left_margin
+            inner_right = current_x + demi_w - right_margin
+            inner_width = inner_right - inner_left
+            
+            # Dessiner la lettre
+            c.setFont('Helvetica-Bold', pdf_heading_pt)
+            c.drawString(inner_left, current_y, letter)
+            current_y -= heading_height
+            
+            # Dessiner les contacts de cette lettre
+            for ct in grouped[letter]:
+                check_space_and_draw(line_height)
+                
+                name = ct['name']
+                number = ct['number']
+                max_chars = 30
+                if len(name) > max_chars:
+                    name = name[:max_chars - 3] + '...'
+                
+                c.setFont('Courier', pdf_contact_pt)
+                c.drawString(inner_left, current_y, name)
+                number_x = inner_left + int(inner_width * 0.60)
+                c.drawString(number_x, current_y, number)
+                current_y -= line_height
+            
+            # Petit espace après chaque groupe de lettre
+            current_y -= int(pdf_heading_pt * 0.4)
 
-            # Sauvegarde et message
-            try:
-                c.save()
-                messagebox.showinfo("PDF généré", f"Fichier PDF généré : {path}")
-            except Exception as e:
-                messagebox.showerror("Erreur écriture PDF", str(e))
+    def _generate_fold_4(self, c, pw, ph, contacts_enabled):
+        """Pliage 4 : 8 pages sur 1 feuille (couv DANS l'imposition)"""
+        max_name_len = max(len(ct['name']) for ct in contacts_enabled) if contacts_enabled else 20
+        
+        grouped = defaultdict(list)
+        for ct in contacts_enabled:
+            grouped[get_letter(ct['name'])].append(ct)
+        
+        formatted_lines = []
+        for letter in sorted(grouped.keys()):
+            if formatted_lines:
+                formatted_lines.append(('space', '', '', '', {}))
+            formatted_lines.append(('letter', letter, '', '', {'size': 16}))
+            for ct in sorted(grouped[letter], key=lambda x: x['name'].lower()):
+                formatted_lines.append(('contact', '', ct['name'], ct['number'], {'size': 10}))
+            formatted_lines.append(('space', '', '', '', {}))
 
-# ------------------------- MAIN -------------------------
+        def draw_text_block(cobj, x, y, w, h, content, font_size=10):
+            leading = font_size * 1.2
+            cur_y = y + h - leading
+            char_width = font_size * 0.6
+            name_width = max_name_len * char_width
+            number_x = x + name_width + 10
+            
+            for line_type, text, name, number, style in content:
+                if cur_y < y + 4:
+                    break
+                if line_type == 'space':
+                    cur_y -= leading * 0.5
+                elif line_type == 'letter':
+                    size = style.get('size', 16)
+                    cobj.setFont("Helvetica-Bold", size)
+                    cobj.drawString(x + 4, cur_y, text)
+                    cur_y -= leading * 1.2
+                elif line_type == 'contact':
+                    size = style.get('size', font_size)
+                    cobj.setFont("Helvetica", size)
+                    cobj.drawString(x + 4, cur_y, name)
+                    cobj.drawString(number_x, cur_y, number)
+                    cur_y -= leading
+
+        def draw_zone_rotated(cobj, x, y, w, h, content, rotation, fs=9):
+            cobj.saveState()
+            if rotation == 90:
+                cobj.translate(x + w, y)
+                cobj.rotate(90)
+                draw_text_block(cobj, 4, 4, h - 8, w - 8, content, fs)
+            elif rotation == -90:
+                cobj.translate(x, y + h)
+                cobj.rotate(-90)
+                draw_text_block(cobj, 4, 4, h - 8, w - 8, content, fs)
+            cobj.restoreState()
+
+        def draw_small_cover(cobj, x, y, w, h, rotation):
+            cobj.saveState()
+            if rotation == 90:
+                cobj.translate(x + w, y)
+                cobj.rotate(90)
+                cx, cy = h/2, w/2
+                cobj.setFont("Helvetica-Bold", 14)
+                cobj.drawCentredString(cx, cy + 15, self.title_var.get())
+                cobj.setFont("Helvetica", 9)
+                cobj.drawCentredString(cx, cy, self.name_var.get())
+            cobj.restoreState()
+
+        def draw_small_back(cobj, x, y, w, h, rotation):
+            cobj.saveState()
+            if rotation == 90:
+                cobj.translate(x + w, y)
+                cobj.rotate(90)
+                cx, cy = h/2, w/2
+                cobj.setFont("Helvetica-Bold", 10)
+                cobj.drawCentredString(cx, cy, COVER_TITLES.get('back_line1', ''))
+            cobj.restoreState()
+
+        qw = pw / 2.0
+        qh = ph / 2.0
+        n_pages = 6
+        per_page = max(1, len(formatted_lines) // n_pages)
+        pages_content = []
+        idx = 0
+        for i in range(n_pages):
+            end_idx = idx + per_page if i < n_pages - 1 else len(formatted_lines)
+            pages_content.append(formatted_lines[idx:end_idx])
+            idx = end_idx
+
+        # RECTO
+        if len(pages_content) >= 4:
+            draw_zone_rotated(c, 0, qh, qw, qh, pages_content[3], -90, 9)
+        draw_small_back(c, qw, qh, qw, qh, 90)
+        if len(pages_content) >= 3:
+            draw_zone_rotated(c, 0, 0, qw, qh, pages_content[2], -90, 9)
+        draw_small_cover(c, qw, 0, qw, qh, 90)
+        c.showPage()
+
+        # VERSO
+        if len(pages_content) >= 6:
+            draw_zone_rotated(c, 0, qh, qw, qh, pages_content[5], 90, 9)
+        if len(pages_content) >= 5:
+            draw_zone_rotated(c, qw, qh, qw, qh, pages_content[4], 90, 9)
+        if len(pages_content) >= 1:
+            draw_zone_rotated(c, 0, 0, qw, qh, pages_content[0], 90, 9)
+        if len(pages_content) >= 2:
+            draw_zone_rotated(c, qw, 0, qw, qh, pages_content[1], 90, 9)
+        c.showPage()
+
+    def _generate_fold_8(self, c, pw, ph, contacts_enabled):
+        """Pliage 8 : 16 pages sur 1 feuille (couv DANS l'imposition)"""
+        max_name_len = max(len(ct['name']) for ct in contacts_enabled) if contacts_enabled else 20
+        
+        grouped = defaultdict(list)
+        for ct in contacts_enabled:
+            grouped[get_letter(ct['name'])].append(ct)
+        
+        formatted_lines = []
+        for letter in sorted(grouped.keys()):
+            if formatted_lines:
+                formatted_lines.append(('space', '', '', '', {}))
+            formatted_lines.append(('letter', letter, '', '', {'size': 14}))
+            for ct in sorted(grouped[letter], key=lambda x: x['name'].lower()):
+                formatted_lines.append(('contact', '', ct['name'], ct['number'], {'size': 7}))
+            formatted_lines.append(('space', '', '', '', {}))
+
+        def draw_text_block(cobj, x, y, w, h, content, font_size=7):
+            leading = font_size * 1.2
+            cur_y = y + h - leading
+            char_width = font_size * 0.6
+            name_width = max_name_len * char_width
+            number_x = x + name_width + 6
+            
+            for line_type, text, name, number, style in content:
+                if cur_y < y + 4:
+                    break
+                if line_type == 'space':
+                    cur_y -= leading * 0.5
+                elif line_type == 'letter':
+                    size = style.get('size', 14)
+                    cobj.setFont("Helvetica-Bold", size)
+                    cobj.drawString(x + 2, cur_y, text)
+                    cur_y -= leading * 1.2
+                elif line_type == 'contact':
+                    size = style.get('size', font_size)
+                    cobj.setFont("Helvetica", size)
+                    cobj.drawString(x + 2, cur_y, name)
+                    cobj.drawString(number_x, cur_y, number)
+                    cur_y -= leading
+
+        def draw_zone_rotated(cobj, x, y, w, h, content, rotation, fs=7):
+            cobj.saveState()
+            if rotation == 180:
+                cobj.translate(x + w, y + h)
+                cobj.rotate(180)
+                draw_text_block(cobj, 2, 2, w - 4, h - 4, content, fs)
+            else:
+                draw_text_block(cobj, x + 2, y + 2, w - 4, h - 4, content, fs)
+            cobj.restoreState()
+
+        def draw_small_cover(cobj, x, y, w, h, rotation):
+            cx, cy = x + w/2, y + h/2
+            cobj.setFont("Helvetica-Bold", 12)
+            cobj.drawCentredString(cx, cy + 10, self.title_var.get())
+            cobj.setFont("Helvetica", 8)
+            cobj.drawCentredString(cx, cy - 5, self.name_var.get())
+
+        def draw_small_back(cobj, x, y, w, h, rotation):
+            cx, cy = x + w/2, y + h/2
+            cobj.setFont("Helvetica-Bold", 9)
+            cobj.drawCentredString(cx, cy, COVER_TITLES.get('back_line1', ''))
+
+        zw = pw / 4.0
+        zh = ph / 2.0
+        n_pages = 13
+        per_page = max(1, len(formatted_lines) // n_pages)
+        pages_content = []
+        idx = 0
+        for i in range(n_pages):
+            end_idx = idx + per_page if i < n_pages - 1 else len(formatted_lines)
+            pages_content.append(formatted_lines[idx:end_idx])
+            idx = end_idx
+
+        # RECTO
+        if len(pages_content) >= 7:
+            draw_zone_rotated(c, 0*zw, zh, zw, zh, pages_content[6], 180, 7)
+        if len(pages_content) >= 6:
+            draw_zone_rotated(c, 1*zw, zh, zw, zh, pages_content[5], 180, 7)
+        if len(pages_content) >= 3:
+            draw_zone_rotated(c, 2*zw, zh, zw, zh, pages_content[2], 180, 7)
+        if len(pages_content) >= 10:
+            draw_zone_rotated(c, 3*zw, zh, zw, zh, pages_content[9], 180, 7)
+        
+        draw_small_back(c, 0*zw, 0, zw, zh, 0)
+        draw_small_cover(c, 1*zw, 0, zw, zh, 0)
+        if len(pages_content) >= 2:
+            draw_zone_rotated(c, 2*zw, 0, zw, zh, pages_content[1], 0, 7)
+        if len(pages_content) >= 11:
+            draw_zone_rotated(c, 3*zw, 0, zw, zh, pages_content[10], 0, 7)
+        c.showPage()
+
+        # VERSO
+        if len(pages_content) >= 9:
+            draw_zone_rotated(c, 0*zw, zh, zw, zh, pages_content[8], 180, 7)
+        if len(pages_content) >= 4:
+            draw_zone_rotated(c, 1*zw, zh, zw, zh, pages_content[3], 180, 7)
+        if len(pages_content) >= 5:
+            draw_zone_rotated(c, 2*zw, zh, zw, zh, pages_content[4], 180, 7)
+        if len(pages_content) >= 8:
+            draw_zone_rotated(c, 3*zw, zh, zw, zh, pages_content[7], 180, 7)
+        
+        if len(pages_content) >= 12:
+            draw_zone_rotated(c, 0*zw, 0, zw, zh, pages_content[11], 0, 7)
+        if len(pages_content) >= 1:
+            draw_zone_rotated(c, 1*zw, 0, zw, zh, pages_content[0], 0, 7)
+        if len(pages_content) >= 13:
+            draw_zone_rotated(c, 3*zw, 0, zw, zh, pages_content[12], 0, 7)
+        c.showPage()
+
+# ========================= MAIN =========================
 if __name__ == '__main__':
     app = KLMEditor()
     app.mainloop()
