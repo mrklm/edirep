@@ -232,24 +232,25 @@ def make_logical_half_pages(contacts_enabled, contact_pt, heading_pt, page_h_pts
     for letter in sorted(grouped.keys()):
         heading_h = int(heading_pt * 1.0)
         pre_gap = max(int(heading_pt * 0.4), 2)
-        if used + pre_gap + heading_h > usable * 0.75 and used != 0:
+        # Vérifier si on a la place pour le titre + au moins quelques contacts
+        if used + pre_gap + heading_h > usable * 0.90 and used != 0:
             push()
-        if used == 0 and heading_h + pre_gap > usable:
-            curr.append(('H', letter))
-            used += heading_h
-        else:
-            if used != 0:
-                curr.append(('B',))
-                used += pre_gap
-            curr.append(('H', letter))
-            used += heading_h
+        
+        # Ajouter le titre de lettre UNE SEULE FOIS
+        if used != 0:
+            curr.append(('B',))
+            used += pre_gap
+        curr.append(('H', letter))
+        used += heading_h
+        
+        # Ajouter les contacts de cette lettre
         for ct in grouped[letter]:
+            # Si pas assez de place, passer à la demi-page suivante SANS répéter la lettre
             if used + line_height > usable:
                 push()
-                curr.append(('H', letter))
-                used += heading_h
             curr.append(('L', f"{ct['name']}|||{ct['number']}"))
             used += line_height
+    
     if curr:
         halves.append(curr)
     return halves, line_height
@@ -860,7 +861,7 @@ class LivretWindow(tk.Toplevel):
 
     def _generate_fold_2(self, c, pw, ph, contacts_enabled):
         """
-        Pliage 2 : Simple - Couverture + demi-pages successives
+        Pliage 2 : Couverture séparée + imposition pour les pages de contenu
         """
         demi_w = pw / 2.0
         ui_heading = FIXED_LETTER_SIZE
@@ -904,75 +905,67 @@ class LivretWindow(tk.Toplevel):
             pass
         c.setFont("Helvetica-Bold", 12)
         c.drawCentredString(left_center_x, ph * 0.45, COVER_TITLES.get('back_line2', ''))
+        
+        # Pointillés de pliage sur page 1
+        c.setDash(3, 3)
+        c.setStrokeColorRGB(0.5, 0.5, 0.5)
+        c.line(demi_w, 0, demi_w, ph)
+        c.setDash()
+        
         c.showPage()
 
-        # --- PAGES INTÉRIEURES : Remplir demi-pages successivement ---
-        # Grouper les contacts par lettre
-        grouped = defaultdict(list)
-        for ct in contacts_enabled:
-            grouped[get_letter(ct['name'])].append(ct)
-        for k in grouped:
-            grouped[k].sort(key=lambda x: x['name'].lower())
+        # --- PAGES INTÉRIEURES avec IMPOSITION ---
+        halves, approx_line_height = make_logical_half_pages(
+            contacts_enabled,
+            contact_pt=pdf_contact_pt,
+            heading_pt=pdf_heading_pt,
+            page_h_pts=ph,
+            top_margin_pts=top_margin,
+            bottom_margin_pts=bottom_margin
+        )
 
-        # Variables pour le remplissage
-        usable_height = ph - top_margin - bottom_margin
-        line_height = int(pdf_contact_pt * 1.07)
-        heading_height = int(pdf_heading_pt * 1.15)
-        
-        current_x = 0  # 0 = gauche, demi_w = droite
-        current_y = ph - top_margin
-        
-        def move_to_next_half():
-            nonlocal current_x, current_y
-            if current_x == 0:
-                # Passer à la demi-page droite
-                current_x = demi_w
-                current_y = ph - top_margin
-            else:
-                # Nouvelle page A4
-                c.showPage()
-                current_x = 0
-                current_y = ph - top_margin
-        
-        def check_space_and_draw(needed_height):
-            nonlocal current_y
-            if current_y - needed_height < bottom_margin:
-                move_to_next_half()
-                current_y = ph - top_margin
-            return True
-        
-        # Dessiner les contacts
-        for letter in sorted(grouped.keys()):
-            # Vérifier si on a assez de place pour le titre de lettre
-            check_space_and_draw(heading_height)
-            
-            inner_left = current_x + left_margin
-            inner_right = current_x + demi_w - right_margin
+        impo = imposition_sequence(len(halves))
+
+        def render_half(x_offset, half_index):
+            inner_left = x_offset + left_margin
+            inner_right = x_offset + demi_w - right_margin
             inner_width = inner_right - inner_left
+            y = ph - top_margin
+            if half_index == 0:
+                return
+            lines = halves[half_index - 1]
+            for item in lines:
+                if item[0] == 'B':
+                    y -= int(pdf_heading_pt * 0.4)
+                elif item[0] == 'H':
+                    _, letter = item
+                    c.setFont('Helvetica-Bold', pdf_heading_pt)
+                    c.drawString(inner_left, y, letter)
+                    y -= int(pdf_heading_pt * 1.15)
+                elif item[0] == 'L':
+                    _, text = item
+                    name, number = text.split('|||')
+                    max_chars = 30
+                    if len(name) > max_chars:
+                        name = name[:max_chars - 3] + '...'
+                    c.setFont('Courier', pdf_contact_pt)
+                    c.drawString(inner_left, y, name)
+                    number_x = inner_left + int(inner_width * 0.60)
+                    c.drawString(number_x, y, number)
+                    y -= int(pdf_contact_pt * 1.07)
+
+        for pair in impo:
+            left_idx, right_idx = pair
+            render_half(0, left_idx)
+            render_half(demi_w, right_idx)
             
-            # Dessiner la lettre
-            c.setFont('Helvetica-Bold', pdf_heading_pt)
-            c.drawString(inner_left, current_y, letter)
-            current_y -= heading_height
+            # Pointillés de pliage sur chaque page
+            c.setDash(3, 3)
+            c.setStrokeColorRGB(0.5, 0.5, 0.5)
+            c.line(demi_w, 0, demi_w, ph)
+            c.setDash()
             
-            # Dessiner les contacts de cette lettre
-            for ct in grouped[letter]:
-                check_space_and_draw(line_height)
-                
-                name = ct['name']
-                number = ct['number']
-                max_chars = 30
-                if len(name) > max_chars:
-                    name = name[:max_chars - 3] + '...'
-                
-                c.setFont('Courier', pdf_contact_pt)
-                c.drawString(inner_left, current_y, name)
-                number_x = inner_left + int(inner_width * 0.60)
-                c.drawString(number_x, current_y, number)
-                current_y -= line_height
-            
-            # Petit espace après chaque groupe de lettre
-            current_y -= int(pdf_heading_pt * 0.4)
+            c.showPage()
 
     def _generate_fold_4(self, c, pw, ph, contacts_enabled):
         """Pliage 4 : 8 pages sur 1 feuille (couv DANS l'imposition)"""
