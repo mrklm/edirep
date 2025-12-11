@@ -45,7 +45,7 @@ MIN_SPACES = 3
 
 APP_WINDOW_TITLE = "Edirep"
 MAIN_HEADER_TEXT = "Éditeur de répertoire téléphonique"
-STATUS_DEFAULT_TEXT = "KLM - Edirep - v3.6.0"
+STATUS_DEFAULT_TEXT = "KLM - Edirep - v3.5.0"
 
 BUTTON_LABELS = {
     'import_vcf': "Importer VCF",
@@ -63,7 +63,7 @@ PDF_DEFAULTS = {
     'date_text': "Édité le {}",
     'cover_line1': '',
     'cover_line2': '',
-    'back_line1': 'Édité avec Edirep v.3.6.0',
+    'back_line1': 'Édité avec Edirep v.3.5.0',
     'back_line2': 'KLM Software',
 }
 
@@ -730,36 +730,43 @@ class KLMEditor(tk.Tk):
         path = filedialog.asksaveasfilename(defaultextension='.ods', filetypes=[('ODS', '*.ods')])
         if not path:
             return
-        doc = OpenDocumentSpreadsheet()
-        table = Table(name="Contacts")
-        doc.spreadsheet.addElement(table)
-        header = TableRow()
-        for title in ("Nom", "Numéro"):
-            cell = TableCell()
-            cell.addElement(P(text=title))
-            header.addElement(cell)
-        table.addElement(header)
-        grouped = defaultdict(list)
-        for c in sorted(self.contacts, key=lambda x: x['name'].lower()):
-            if c.get('enabled') and c['enabled'].get():
-                grouped[get_letter(c['name'])].append(c)
-        for letter in sorted(grouped.keys()):
-            row = TableRow()
-            cell = TableCell(numbercolumnsspanned="2")
-            cell.addElement(P(text=f"— {letter} —"))
-            row.addElement(cell)
-            table.addElement(row)
-            for c in grouped[letter]:
+        
+        try:
+            doc = OpenDocumentSpreadsheet()
+            table = Table(name="Contacts")
+            doc.spreadsheet.addElement(table)
+            header = TableRow()
+            for title in ("Nom", "Numéro"):
+                cell = TableCell()
+                cell.addElement(P(text=title))
+                header.addElement(cell)
+            table.addElement(header)
+            grouped = defaultdict(list)
+            for c in sorted(self.contacts, key=lambda x: x['name'].lower()):
+                if c.get('enabled') and c['enabled'].get():
+                    grouped[get_letter(c['name'])].append(c)
+            for letter in sorted(grouped.keys()):
                 row = TableRow()
-                cell_name = TableCell()
-                cell_name.addElement(P(text=c['name']))
-                row.addElement(cell_name)
-                cell_number = TableCell()
-                cell_number.addElement(P(text=c['number']))
-                row.addElement(cell_number)
+                cell = TableCell(numbercolumnsspanned="2")
+                cell.addElement(P(text=f"— {letter} —"))
+                row.addElement(cell)
                 table.addElement(row)
-        doc.save(path)
-        messagebox.showinfo('ODS Export', f'Fichier ODS généré : {path}')
+                for c in grouped[letter]:
+                    row = TableRow()
+                    cell_name = TableCell()
+                    cell_name.addElement(P(text=c['name']))
+                    row.addElement(cell_name)
+                    cell_number = TableCell()
+                    cell_number.addElement(P(text=c['number']))
+                    row.addElement(cell_number)
+                    table.addElement(row)
+            doc.save(path)
+            messagebox.showinfo('ODS Export', f'Fichier ODS généré : {path}')
+        except Exception as e:
+            messagebox.showerror('Erreur ODS', f'Erreur lors de l\'export ODS:\n{str(e)}')
+            print(f"Erreur détaillée ODS: {e}")
+            import traceback
+            traceback.print_exc()
 
 # ========================= LIVRETWINDOW =========================
 
@@ -968,9 +975,17 @@ class LivretWindow(tk.Toplevel):
             c.showPage()
 
     def _generate_fold_4(self, c, pw, ph, contacts_enabled):
-        """Pliage 4 : 8 pages sur 1 feuille (couv DANS l'imposition)"""
+        """Pliage 4 : 8 pages par feuille A4 paysage (4 zones avec rotations 90°)
+        RECTO: Page4(90°), Couv(-90°), Page5(90°), 4ème(-90°)
+        VERSO: Page2(90°), Page3(-90°), Page7(90°), Page6(-90°)
+        """
+        qw = pw / 2.0  # largeur d'un quart
+        qh = ph / 2.0  # hauteur d'un quart
+        
+        # Calculer max_name_len pour alignement
         max_name_len = max(len(ct['name']) for ct in contacts_enabled) if contacts_enabled else 20
         
+        # Grouper et formater les contacts
         grouped = defaultdict(list)
         for ct in contacts_enabled:
             grouped[get_letter(ct['name'])].append(ct)
@@ -979,99 +994,167 @@ class LivretWindow(tk.Toplevel):
         for letter in sorted(grouped.keys()):
             if formatted_lines:
                 formatted_lines.append(('space', '', '', '', {}))
-            formatted_lines.append(('letter', letter, '', '', {'size': 16}))
+            formatted_lines.append(('letter', letter, '', '', {'size': 12}))
             for ct in sorted(grouped[letter], key=lambda x: x['name'].lower()):
-                formatted_lines.append(('contact', '', ct['name'], ct['number'], {'size': 10}))
-            formatted_lines.append(('space', '', '', '', {}))
-
-        def draw_text_block(cobj, x, y, w, h, content, font_size=10):
-            leading = font_size * 1.2
-            cur_y = y + h - leading
-            char_width = font_size * 0.6
-            name_width = max_name_len * char_width
-            number_x = x + name_width + 10
+                formatted_lines.append(('contact', '', ct['name'], ct['number'], {'size': 9}))
+        
+        # Calculer combien de feuilles nécessaires
+        # Feuille 1 = 6 pages de contenu max (+ couv + 4ème)
+        # Feuilles suivantes = 8 pages de contenu chacune
+        
+        # Utiliser make_logical_half_pages pour diviser intelligemment
+        ui_heading = 12
+        ui_contact = 9
+        pdf_contact_pt = 9
+        pdf_heading_pt = 12
+        left_margin = 8 * mm
+        right_margin = 8 * mm
+        top_margin = 12 * mm
+        bottom_margin = 8 * mm
+        
+        halves, _ = make_logical_half_pages(
+            contacts_enabled,
+            contact_pt=pdf_contact_pt,
+            heading_pt=pdf_heading_pt,
+            page_h_pts=qh,  # Hauteur d'une zone (quart de page)
+            top_margin_pts=top_margin,
+            bottom_margin_pts=bottom_margin
+        )
+        
+        # Fonction pour dessiner du texte dans une zone
+        def draw_text_in_zone(cobj, x, y, w, h, half_index):
+            if half_index == 0 or half_index > len(halves):
+                return
             
-            for line_type, text, name, number, style in content:
-                if cur_y < y + 4:
-                    break
-                if line_type == 'space':
-                    cur_y -= leading * 0.5
-                elif line_type == 'letter':
-                    size = style.get('size', 16)
-                    cobj.setFont("Helvetica-Bold", size)
-                    cobj.drawString(x + 4, cur_y, text)
-                    cur_y -= leading * 1.2
-                elif line_type == 'contact':
-                    size = style.get('size', font_size)
-                    cobj.setFont("Helvetica", size)
-                    cobj.drawString(x + 4, cur_y, name)
+            lines = halves[half_index - 1]
+            inner_left = x + left_margin
+            inner_right = x + w - right_margin
+            inner_width = inner_right - inner_left
+            cur_y = y + h - top_margin
+            
+            for item in lines:
+                if item[0] == 'B':
+                    cur_y -= int(pdf_heading_pt * 0.4)
+                elif item[0] == 'H':
+                    _, letter = item
+                    cobj.setFont('Helvetica-Bold', pdf_heading_pt)
+                    cobj.drawString(inner_left, cur_y, letter)
+                    cur_y -= int(pdf_heading_pt * 1.15)
+                elif item[0] == 'L':
+                    _, text = item
+                    name, number = text.split('|||')
+                    if len(name) > 25:
+                        name = name[:22] + '...'
+                    cobj.setFont('Courier', pdf_contact_pt)
+                    cobj.drawString(inner_left, cur_y, name)
+                    number_x = inner_left + int(inner_width * 0.60)
                     cobj.drawString(number_x, cur_y, number)
-                    cur_y -= leading
-
-        def draw_zone_rotated(cobj, x, y, w, h, content, rotation, fs=9):
+                    cur_y -= int(pdf_contact_pt * 1.07)
+        
+        # Fonction pour dessiner une zone avec rotation 90° ou -90°
+        def draw_zone_rotated(cobj, x, y, w, h, half_index, rotation):
             cobj.saveState()
-            if rotation == 90:
+            if rotation == 90:  # Horaire
                 cobj.translate(x + w, y)
                 cobj.rotate(90)
-                draw_text_block(cobj, 4, 4, h - 8, w - 8, content, fs)
-            elif rotation == -90:
+                draw_text_in_zone(cobj, 0, 0, h, w, half_index)
+            elif rotation == -90:  # Anti-horaire
                 cobj.translate(x, y + h)
                 cobj.rotate(-90)
-                draw_text_block(cobj, 4, 4, h - 8, w - 8, content, fs)
+                draw_text_in_zone(cobj, 0, 0, h, w, half_index)
             cobj.restoreState()
-
-        def draw_small_cover(cobj, x, y, w, h, rotation):
+        
+        # Fonction pour dessiner couverture avec rotation
+        def draw_cover_rotated(cobj, x, y, w, h, rotation):
             cobj.saveState()
-            if rotation == 90:
-                cobj.translate(x + w, y)
-                cobj.rotate(90)
+            if rotation == -90:
+                cobj.translate(x, y + h)
+                cobj.rotate(-90)
                 cx, cy = h/2, w/2
-                cobj.setFont("Helvetica-Bold", 14)
-                cobj.drawCentredString(cx, cy + 15, self.title_var.get())
-                cobj.setFont("Helvetica", 9)
-                cobj.drawCentredString(cx, cy, self.name_var.get())
+            else:
+                cx, cy = x + w/2, y + h/2
+            
+            cobj.setFont("Helvetica-Bold", 14)
+            cobj.drawCentredString(cx, cy + 15, self.title_var.get())
+            cobj.setFont("Helvetica", 9)
+            cobj.drawCentredString(cx, cy, self.name_var.get())
             cobj.restoreState()
-
-        def draw_small_back(cobj, x, y, w, h, rotation):
+        
+        # Fonction pour dessiner 4ème de couv avec rotation
+        def draw_back_rotated(cobj, x, y, w, h, rotation):
             cobj.saveState()
-            if rotation == 90:
-                cobj.translate(x + w, y)
-                cobj.rotate(90)
+            if rotation == -90:
+                cobj.translate(x, y + h)
+                cobj.rotate(-90)
                 cx, cy = h/2, w/2
-                cobj.setFont("Helvetica-Bold", 10)
-                cobj.drawCentredString(cx, cy, COVER_TITLES.get('back_line1', ''))
+            else:
+                cx, cy = x + w/2, y + h/2
+            
+            cobj.setFont("Helvetica-Bold", 10)
+            cobj.drawCentredString(cx, cy, COVER_TITLES.get('back_line1', ''))
             cobj.restoreState()
-
-        qw = pw / 2.0
-        qh = ph / 2.0
-        n_pages = 6
-        per_page = max(1, len(formatted_lines) // n_pages)
-        pages_content = []
-        idx = 0
-        for i in range(n_pages):
-            end_idx = idx + per_page if i < n_pages - 1 else len(formatted_lines)
-            pages_content.append(formatted_lines[idx:end_idx])
-            idx = end_idx
-
-        # RECTO
-        if len(pages_content) >= 4:
-            draw_zone_rotated(c, 0, qh, qw, qh, pages_content[3], -90, 9)
-        draw_small_back(c, qw, qh, qw, qh, 90)
-        if len(pages_content) >= 3:
-            draw_zone_rotated(c, 0, 0, qw, qh, pages_content[2], -90, 9)
-        draw_small_cover(c, qw, 0, qw, qh, 90)
+        
+        # FEUILLE 1
+        # RECTO : Page4(90°), Couv(-90°), Page5(90°), 4ème(-90°)
+        draw_zone_rotated(c, 0, qh, qw, qh, 4, 90)       # Haut-gauche : Page 4
+        draw_cover_rotated(c, qw, qh, qw, qh, -90)       # Haut-droite : Couverture
+        draw_zone_rotated(c, 0, 0, qw, qh, 5, 90)        # Bas-gauche : Page 5
+        draw_back_rotated(c, qw, 0, qw, qh, -90)         # Bas-droite : 4ème de couv
+        
+        # Pointillés
+        c.setDash(3, 3)
+        c.setStrokeColorRGB(0.5, 0.5, 0.5)
+        c.line(qw, 0, qw, ph)
+        c.line(0, qh, pw, qh)
+        c.setDash()
         c.showPage()
-
-        # VERSO
-        if len(pages_content) >= 6:
-            draw_zone_rotated(c, 0, qh, qw, qh, pages_content[5], 90, 9)
-        if len(pages_content) >= 5:
-            draw_zone_rotated(c, qw, qh, qw, qh, pages_content[4], 90, 9)
-        if len(pages_content) >= 1:
-            draw_zone_rotated(c, 0, 0, qw, qh, pages_content[0], 90, 9)
-        if len(pages_content) >= 2:
-            draw_zone_rotated(c, qw, 0, qw, qh, pages_content[1], 90, 9)
+        
+        # VERSO : Page2(90°), Page3(-90°), Page7(90°), Page6(-90°)
+        draw_zone_rotated(c, 0, qh, qw, qh, 2, 90)       # Haut-gauche : Page 2
+        draw_zone_rotated(c, qw, qh, qw, qh, 3, -90)     # Haut-droite : Page 3
+        draw_zone_rotated(c, 0, 0, qw, qh, 7, 90)        # Bas-gauche : Page 7
+        draw_zone_rotated(c, qw, 0, qw, qh, 6, -90)      # Bas-droite : Page 6
+        
+        # Pointillés
+        c.setDash(3, 3)
+        c.setStrokeColorRGB(0.5, 0.5, 0.5)
+        c.line(qw, 0, qw, ph)
+        c.line(0, qh, pw, qh)
+        c.setDash()
         c.showPage()
+        
+        # FEUILLES SUPPLÉMENTAIRES (si nécessaire)
+        # Pages 8, 9, 10... utilisent le même pattern mais sans couv/4ème
+        current_page = 8
+        while current_page <= len(halves):
+            # RECTO : Pages n, n+1, n+2, n+3
+            draw_zone_rotated(c, 0, qh, qw, qh, current_page, 90)
+            draw_zone_rotated(c, qw, qh, qw, qh, current_page+1, -90)
+            draw_zone_rotated(c, 0, 0, qw, qh, current_page+2, 90)
+            draw_zone_rotated(c, qw, 0, qw, qh, current_page+3, -90)
+            
+            c.setDash(3, 3)
+            c.setStrokeColorRGB(0.5, 0.5, 0.5)
+            c.line(qw, 0, qw, ph)
+            c.line(0, qh, pw, qh)
+            c.setDash()
+            c.showPage()
+            
+            # VERSO : Pages n+4, n+5, n+6, n+7
+            draw_zone_rotated(c, 0, qh, qw, qh, current_page+4, 90)
+            draw_zone_rotated(c, qw, qh, qw, qh, current_page+5, -90)
+            draw_zone_rotated(c, 0, 0, qw, qh, current_page+6, 90)
+            draw_zone_rotated(c, qw, 0, qw, qh, current_page+7, -90)
+            
+            c.setDash(3, 3)
+            c.setStrokeColorRGB(0.5, 0.5, 0.5)
+            c.line(qw, 0, qw, ph)
+            c.line(0, qh, pw, qh)
+            c.setDash()
+            c.showPage()
+            
+            current_page += 8
+
 
     def _generate_fold_8(self, c, pw, ph, contacts_enabled):
         """Pliage 8 : 16 pages sur 1 feuille (couv DANS l'imposition)"""
