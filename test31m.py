@@ -112,6 +112,12 @@ def format_phone(number):
     s = re.sub(r'\s+', '', s)
     s = re.sub(r'^\+33', '0', s)
     s = re.sub(r'^0033', '0', s)
+    # NOUVEAU : Gérer les fixes français avec 001, 002, 003, 004, 005
+    s = re.sub(r'^001', '01', s)
+    s = re.sub(r'^002', '02', s)
+    s = re.sub(r'^003', '03', s)
+    s = re.sub(r'^004', '04', s)
+    s = re.sub(r'^005', '05', s)
     s = re.sub(r'^006', '06', s)
     s = re.sub(r'^007', '07', s)
     digits = re.sub(r'\D', '', s)
@@ -399,25 +405,22 @@ class KLMEditor(tk.Tk):
         self.inner_frame = tk.Frame(self.left_canvas)
         self.left_canvas.create_window((0, 0), window=self.inner_frame, anchor='nw')
         self.inner_frame.bind('<Configure>', lambda e: self.left_canvas.configure(scrollregion=self.left_canvas.bbox('all')))
+        # Scroll synchronisé sur les deux colonnes
         if sys.platform.startswith('linux'):
-            self.left_canvas.bind_all('<Button-4>', self._on_mousewheel_left)
-            self.left_canvas.bind_all('<Button-5>', self._on_mousewheel_left)
+            self.bind_all('<Button-4>', self._on_mousewheel_both)
+            self.bind_all('<Button-5>', self._on_mousewheel_both)
         else:
-            self.left_canvas.bind_all('<MouseWheel>', self._on_mousewheel_left)
+            self.bind_all('<MouseWheel>', self._on_mousewheel_both)
         main_pw.add(left_frame, minsize=280)
 
         right_frame = tk.Frame(main_pw, padx=6)
         tk.Label(right_frame, text='Prévisualisation', font=('Helvetica', 14, 'bold')).pack(pady=(4,6))
-        self.preview_text = tk.Text(right_frame, wrap='none')
+        self.preview_text = tk.Text(right_frame, wrap='none', state='disabled')  # Non-modifiable
         self.vscroll_right = tk.Scrollbar(right_frame, orient='vertical', command=self.preview_text.yview)
         self.preview_text.configure(yscrollcommand=self.vscroll_right.set)
         self.vscroll_right.pack(side='right', fill='y')
         self.preview_text.pack(side='left', fill='both', expand=True)
-        if sys.platform.startswith('linux'):
-            self.preview_text.bind_all('<Button-4>', self._on_mousewheel_preview)
-            self.preview_text.bind_all('<Button-5>', self._on_mousewheel_preview)
-        else:
-            self.preview_text.bind_all('<MouseWheel>', self._on_mousewheel_preview)
+        # Plus de bind ici, déjà fait au-dessus
         main_pw.add(right_frame, minsize=420)
 
         self.status_bar = tk.Frame(self, bg='#1976d2', height=26)
@@ -427,23 +430,19 @@ class KLMEditor(tk.Tk):
         self.version_label = tk.Label(self.status_bar, text=STATUS_DEFAULT_TEXT, bg='#1976d2', fg='#d0d0d0')
         self.version_label.pack(side='right', padx=6)
 
-    def _on_mousewheel_left(self, event):
+    def _on_mousewheel_both(self, event):
+        """Scrolle les deux colonnes en même temps"""
         if sys.platform.startswith('linux'):
             if event.num == 4:
                 self.left_canvas.yview_scroll(-1, 'units')
-            elif event.num == 5:
-                self.left_canvas.yview_scroll(1, 'units')
-        else:
-            self.left_canvas.yview_scroll(int(-1 * (event.delta / 120)), 'units')
-
-    def _on_mousewheel_preview(self, event):
-        if sys.platform.startswith('linux'):
-            if event.num == 4:
                 self.preview_text.yview_scroll(-1, 'units')
             elif event.num == 5:
+                self.left_canvas.yview_scroll(1, 'units')
                 self.preview_text.yview_scroll(1, 'units')
         else:
-            self.preview_text.yview_scroll(int(-1 * (event.delta / 120)), 'units')
+            scroll_amount = int(-1 * (event.delta / 120))
+            self.left_canvas.yview_scroll(scroll_amount, 'units')
+            self.preview_text.yview_scroll(scroll_amount, 'units')
 
     def apply_theme(self):
         dark = self.dark.get()
@@ -647,6 +646,7 @@ class KLMEditor(tk.Tk):
                     pass
 
     def update_preview(self):
+        self.preview_text.configure(state='normal')  # Autoriser temporairement
         self.preview_text.delete('1.0', 'end')
         grouped = defaultdict(list)
         for c in self.contacts:
@@ -673,6 +673,7 @@ class KLMEditor(tk.Tk):
             self.preview_text.tag_configure('contact', font=('Courier', csize))
         except Exception:
             pass
+        self.preview_text.configure(state='disabled')  # Remettre en lecture seule
 
     def export_txt(self):
         if not self.contacts:
