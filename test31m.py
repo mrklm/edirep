@@ -975,9 +975,10 @@ class LivretWindow(tk.Toplevel):
             c.showPage()
 
     def _generate_fold_4(self, c, pw, ph, contacts_enabled):
-        """Pliage 4 : 8 pages par feuille A4 paysage (4 zones avec rotations 90°)
-        RECTO: Page4(90°), Couv(-90°), Page5(90°), 4ème(-90°)
-        VERSO: Page2(90°), Page3(-90°), Page7(90°), Page6(-90°)
+        """Pliage 4 : système modulaire avec ajout de feuilles selon besoin
+        - 1 A4 = Couv(1) + 4ème(dernier) + 6 pages de contenu
+        - Demi-A4 supplémentaire = 4 pages de contenu (moitié gauche seulement)
+        - A4 supplémentaire = 8 pages de contenu
         """
         qw = pw / 2.0  # largeur d'un quart
         qh = ph / 2.0  # hauteur d'un quart
@@ -985,26 +986,7 @@ class LivretWindow(tk.Toplevel):
         # Calculer max_name_len pour alignement
         max_name_len = max(len(ct['name']) for ct in contacts_enabled) if contacts_enabled else 20
         
-        # Grouper et formater les contacts
-        grouped = defaultdict(list)
-        for ct in contacts_enabled:
-            grouped[get_letter(ct['name'])].append(ct)
-        
-        formatted_lines = []
-        for letter in sorted(grouped.keys()):
-            if formatted_lines:
-                formatted_lines.append(('space', '', '', '', {}))
-            formatted_lines.append(('letter', letter, '', '', {'size': 12}))
-            for ct in sorted(grouped[letter], key=lambda x: x['name'].lower()):
-                formatted_lines.append(('contact', '', ct['name'], ct['number'], {'size': 9}))
-        
-        # Calculer combien de feuilles nécessaires
-        # Feuille 1 = 6 pages de contenu max (+ couv + 4ème)
-        # Feuilles suivantes = 8 pages de contenu chacune
-        
-        # Utiliser make_logical_half_pages pour diviser intelligemment
-        ui_heading = 12
-        ui_contact = 9
+        # Configuration
         pdf_contact_pt = 9
         pdf_heading_pt = 12
         left_margin = 8 * mm
@@ -1012,26 +994,60 @@ class LivretWindow(tk.Toplevel):
         top_margin = 12 * mm
         bottom_margin = 8 * mm
         
+        # Calculer les demi-pages nécessaires
         halves, _ = make_logical_half_pages(
             contacts_enabled,
             contact_pt=pdf_contact_pt,
             heading_pt=pdf_heading_pt,
-            page_h_pts=qh,  # Hauteur d'une zone (quart de page)
+            page_h_pts=qw,  # qw car rotation 90°
             top_margin_pts=top_margin,
             bottom_margin_pts=bottom_margin
         )
         
+        n_content_pages = len(halves)
+        
+        # Calculer le nombre de pages total nécessaire (avec arrondissement)
+        if n_content_pages <= 6:
+            total_pages = 8  # 1 A4 : Couv + 6 pages + 4ème
+        elif n_content_pages <= 10:
+            total_pages = 12  # 1 A4 + 1 demi-A4
+        elif n_content_pages <= 14:
+            total_pages = 16  # 2 A4
+        elif n_content_pages <= 18:
+            total_pages = 20  # 2 A4 + 1 demi-A4
+        else:
+            # Continuer par groupes de 4
+            total_pages = 8 + ((n_content_pages - 6 + 3) // 4) * 4
+        
+        # Étendre halves avec des pages blanches si nécessaire
+        while len(halves) < total_pages - 2:  # -2 pour couv et 4ème
+            halves.append([])  # Page blanche
+        
         # Fonction pour dessiner du texte dans une zone
-        def draw_text_in_zone(cobj, x, y, w, h, half_index):
-            if half_index == 0 or half_index > len(halves):
+        def draw_text_in_zone(cobj, x, y, w, h, page_num):
+            # Mapper numéro de page → index dans halves
+            # Page 2 = halves[0], Page 3 = halves[1], etc.
+            if page_num <= 1 or page_num >= last_page:
+                # Pour couv et 4ème, juste afficher le numéro
+                cobj.setFont('Helvetica', 8)
+                cobj.drawRightString(x + w - 5, y + 5, str(page_num))
                 return
             
-            lines = halves[half_index - 1]
+            half_index = page_num - 2
+            if half_index < 0 or half_index >= len(halves):
+                # Page hors limites, juste le numéro
+                cobj.setFont('Helvetica', 8)
+                cobj.drawRightString(x + w - 5, y + 5, str(page_num))
+                return
+            
+            lines = halves[half_index]
+            
             inner_left = x + left_margin
             inner_right = x + w - right_margin
             inner_width = inner_right - inner_left
             cur_y = y + h - top_margin
             
+            # Dessiner le contenu
             for item in lines:
                 if item[0] == 'B':
                     cur_y -= int(pdf_heading_pt * 0.4)
@@ -1050,24 +1066,28 @@ class LivretWindow(tk.Toplevel):
                     number_x = inner_left + int(inner_width * 0.60)
                     cobj.drawString(number_x, cur_y, number)
                     cur_y -= int(pdf_contact_pt * 1.07)
+            
+            # Numéro de page en bas à droite
+            cobj.setFont('Helvetica', 8)
+            cobj.drawRightString(x + w - 5, y + 5, str(page_num))
         
         # Fonction pour dessiner une zone avec rotation 90° ou -90°
-        def draw_zone_rotated(cobj, x, y, w, h, half_index, rotation):
+        def draw_zone_rotated(cobj, x, y, w, h, page_num, rotation):
             cobj.saveState()
             if rotation == 90:  # Horaire
                 cobj.translate(x + w, y)
                 cobj.rotate(90)
-                draw_text_in_zone(cobj, 0, 0, h, w, half_index)
+                draw_text_in_zone(cobj, 0, 0, h, w, page_num)
             elif rotation == -90:  # Anti-horaire
                 cobj.translate(x, y + h)
                 cobj.rotate(-90)
-                draw_text_in_zone(cobj, 0, 0, h, w, half_index)
+                draw_text_in_zone(cobj, 0, 0, h, w, page_num)
             cobj.restoreState()
         
         # Fonction pour dessiner couverture avec rotation
         def draw_cover_rotated(cobj, x, y, w, h, rotation):
             cobj.saveState()
-            if rotation == 90:  # Changé de -90 à 90
+            if rotation == 90:
                 cobj.translate(x + w, y)
                 cobj.rotate(90)
                 cx, cy = h/2, w/2
@@ -1083,7 +1103,7 @@ class LivretWindow(tk.Toplevel):
         # Fonction pour dessiner 4ème de couv avec rotation
         def draw_back_rotated(cobj, x, y, w, h, rotation):
             cobj.saveState()
-            if rotation == 90:  # Changé de -90 à 90
+            if rotation == 90:
                 cobj.translate(x + w, y)
                 cobj.rotate(90)
                 cx, cy = h/2, w/2
@@ -1094,12 +1114,15 @@ class LivretWindow(tk.Toplevel):
             cobj.drawCentredString(cx, cy, COVER_TITLES.get('back_line1', ''))
             cobj.restoreState()
         
-        # FEUILLE 1
-        # RECTO : Page4(-90°), Couv(90°), Page5(-90°), 4ème(90°)
-        draw_zone_rotated(c, 0, qh, qw, qh, 4, -90)      # Haut-gauche : Page 4
-        draw_cover_rotated(c, qw, qh, qw, qh, 90)        # Haut-droite : Couverture
-        draw_zone_rotated(c, 0, 0, qw, qh, 5, -90)       # Bas-gauche : Page 5
-        draw_back_rotated(c, qw, 0, qw, qh, 90)          # Bas-droite : 4ème de couv
+        # === A4 N°1 : Couv + 4ème + premières et dernières pages ===
+        # Ordre de lecture : 1(couv), 2, 3, 4, 9, 10, 11, 12(4ème)
+        last_page = total_pages
+        
+        # RECTO : HG=4, HD=1(couv), BG=9, BD=12(4ème)  <- INTERVERTI 4 et 9
+        draw_zone_rotated(c, 0, qh, qw, qh, 4, -90)              # HG : Page 4
+        draw_cover_rotated(c, qw, qh, qw, qh, 90)                # HD : Couverture (page 1)
+        draw_zone_rotated(c, 0, 0, qw, qh, last_page - 3, -90)   # BG : Page 9
+        draw_back_rotated(c, qw, 0, qw, qh, 90)                  # BD : 4ème de couv (page last)
         
         # Pointillés
         c.setDash(3, 3)
@@ -1109,11 +1132,11 @@ class LivretWindow(tk.Toplevel):
         c.setDash()
         c.showPage()
         
-        # VERSO : Page2(-90°), Page3(90°), Page7(-90°), Page6(90°)
-        draw_zone_rotated(c, 0, qh, qw, qh, 2, -90)      # Haut-gauche : Page 2
-        draw_zone_rotated(c, qw, qh, qw, qh, 3, 90)      # Haut-droite : Page 3
-        draw_zone_rotated(c, 0, 0, qw, qh, 7, -90)       # Bas-gauche : Page 7
-        draw_zone_rotated(c, qw, 0, qw, qh, 6, 90)       # Bas-droite : Page 6
+        # VERSO : HG=10, HD=11, BG=3, BD=2
+        draw_zone_rotated(c, 0, qh, qw, qh, last_page - 2, -90)  # HG : Page 10
+        draw_zone_rotated(c, qw, qh, qw, qh, last_page - 1, 90)  # HD : Page 11
+        draw_zone_rotated(c, 0, 0, qw, qh, 3, -90)               # BG : Page 3
+        draw_zone_rotated(c, qw, 0, qw, qh, 2, 90)               # BD : Page 2
         
         # Pointillés
         c.setDash(3, 3)
@@ -1123,37 +1146,67 @@ class LivretWindow(tk.Toplevel):
         c.setDash()
         c.showPage()
         
-        # FEUILLES SUPPLÉMENTAIRES (si nécessaire)
-        # Pages 8, 9, 10... utilisent le même pattern mais sans couv/4ème
-        current_page = 8
-        while current_page <= len(halves):
-            # RECTO : Pages n, n+1, n+2, n+3
-            draw_zone_rotated(c, 0, qh, qw, qh, current_page, -90)
-            draw_zone_rotated(c, qw, qh, qw, qh, current_page+1, 90)
-            draw_zone_rotated(c, 0, 0, qw, qh, current_page+2, -90)
-            draw_zone_rotated(c, qw, 0, qw, qh, current_page+3, 90)
+        # === FEUILLES SUPPLÉMENTAIRES ===
+        current_page = 5
+        
+        while current_page < last_page - 3:
+            pages_left = (last_page - 3) - current_page + 1
             
-            c.setDash(3, 3)
-            c.setStrokeColorRGB(0.5, 0.5, 0.5)
-            c.line(qw, 0, qw, ph)
-            c.line(0, qh, pw, qh)
-            c.setDash()
-            c.showPage()
-            
-            # VERSO : Pages n+4, n+5, n+6, n+7
-            draw_zone_rotated(c, 0, qh, qw, qh, current_page+4, -90)
-            draw_zone_rotated(c, qw, qh, qw, qh, current_page+5, 90)
-            draw_zone_rotated(c, 0, 0, qw, qh, current_page+6, -90)
-            draw_zone_rotated(c, qw, 0, qw, qh, current_page+7, 90)
-            
-            c.setDash(3, 3)
-            c.setStrokeColorRGB(0.5, 0.5, 0.5)
-            c.line(qw, 0, qw, ph)
-            c.line(0, qh, pw, qh)
-            c.setDash()
-            c.showPage()
-            
-            current_page += 8
+            if pages_left >= 8:
+                # A4 complet (8 pages)
+                # RECTO : current+3, current, current+4, current+7
+                draw_zone_rotated(c, 0, qh, qw, qh, current_page + 3, -90)
+                draw_zone_rotated(c, qw, qh, qw, qh, current_page, 90)
+                draw_zone_rotated(c, 0, 0, qw, qh, current_page + 4, -90)
+                draw_zone_rotated(c, qw, 0, qw, qh, current_page + 7, 90)
+                
+                c.setDash(3, 3)
+                c.setStrokeColorRGB(0.5, 0.5, 0.5)
+                c.line(qw, 0, qw, ph)
+                c.line(0, qh, pw, qh)
+                c.setDash()
+                c.showPage()
+                
+                # VERSO : current+1, current+6, current+2, current+5
+                draw_zone_rotated(c, 0, qh, qw, qh, current_page + 1, -90)
+                draw_zone_rotated(c, qw, qh, qw, qh, current_page + 6, 90)
+                draw_zone_rotated(c, 0, 0, qw, qh, current_page + 2, -90)
+                draw_zone_rotated(c, qw, 0, qw, qh, current_page + 5, 90)
+                
+                c.setDash(3, 3)
+                c.setStrokeColorRGB(0.5, 0.5, 0.5)
+                c.line(qw, 0, qw, ph)
+                c.line(0, qh, pw, qh)
+                c.setDash()
+                c.showPage()
+                
+                current_page += 8
+            else:
+                # Demi-A4 (4 pages, moitié gauche seulement)
+                # RECTO : current+3, current (moitié gauche)
+                draw_zone_rotated(c, 0, qh, qw, qh, current_page + 3, -90)
+                draw_zone_rotated(c, 0, 0, qw, qh, current_page, -90)
+                
+                c.setDash(3, 3)
+                c.setStrokeColorRGB(0.5, 0.5, 0.5)
+                c.line(qw, 0, qw, ph)
+                c.line(0, qh, pw, qh)
+                c.setDash()
+                c.showPage()
+                
+                # VERSO : current+1, current+2 (moitié gauche)
+                draw_zone_rotated(c, 0, qh, qw, qh, current_page + 1, -90)
+                draw_zone_rotated(c, 0, 0, qw, qh, current_page + 2, -90)
+                
+                c.setDash(3, 3)
+                c.setStrokeColorRGB(0.5, 0.5, 0.5)
+                c.line(qw, 0, qw, ph)
+                c.line(0, qh, pw, qh)
+                c.setDash()
+                c.showPage()
+                
+                current_page += 4
+
 
 
     def _generate_fold_8(self, c, pw, ph, contacts_enabled):
