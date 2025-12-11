@@ -1067,9 +1067,9 @@ class LivretWindow(tk.Toplevel):
         # Fonction pour dessiner couverture avec rotation
         def draw_cover_rotated(cobj, x, y, w, h, rotation):
             cobj.saveState()
-            if rotation == -90:
-                cobj.translate(x, y + h)
-                cobj.rotate(-90)
+            if rotation == 90:  # Changé de -90 à 90
+                cobj.translate(x + w, y)
+                cobj.rotate(90)
                 cx, cy = h/2, w/2
             else:
                 cx, cy = x + w/2, y + h/2
@@ -1083,9 +1083,9 @@ class LivretWindow(tk.Toplevel):
         # Fonction pour dessiner 4ème de couv avec rotation
         def draw_back_rotated(cobj, x, y, w, h, rotation):
             cobj.saveState()
-            if rotation == -90:
-                cobj.translate(x, y + h)
-                cobj.rotate(-90)
+            if rotation == 90:  # Changé de -90 à 90
+                cobj.translate(x + w, y)
+                cobj.rotate(90)
                 cx, cy = h/2, w/2
             else:
                 cx, cy = x + w/2, y + h/2
@@ -1095,11 +1095,11 @@ class LivretWindow(tk.Toplevel):
             cobj.restoreState()
         
         # FEUILLE 1
-        # RECTO : Page4(90°), Couv(-90°), Page5(90°), 4ème(-90°)
-        draw_zone_rotated(c, 0, qh, qw, qh, 4, 90)       # Haut-gauche : Page 4
-        draw_cover_rotated(c, qw, qh, qw, qh, -90)       # Haut-droite : Couverture
-        draw_zone_rotated(c, 0, 0, qw, qh, 5, 90)        # Bas-gauche : Page 5
-        draw_back_rotated(c, qw, 0, qw, qh, -90)         # Bas-droite : 4ème de couv
+        # RECTO : Page4(-90°), Couv(90°), Page5(-90°), 4ème(90°)
+        draw_zone_rotated(c, 0, qh, qw, qh, 4, -90)      # Haut-gauche : Page 4
+        draw_cover_rotated(c, qw, qh, qw, qh, 90)        # Haut-droite : Couverture
+        draw_zone_rotated(c, 0, 0, qw, qh, 5, -90)       # Bas-gauche : Page 5
+        draw_back_rotated(c, qw, 0, qw, qh, 90)          # Bas-droite : 4ème de couv
         
         # Pointillés
         c.setDash(3, 3)
@@ -1109,11 +1109,11 @@ class LivretWindow(tk.Toplevel):
         c.setDash()
         c.showPage()
         
-        # VERSO : Page2(90°), Page3(-90°), Page7(90°), Page6(-90°)
-        draw_zone_rotated(c, 0, qh, qw, qh, 2, 90)       # Haut-gauche : Page 2
-        draw_zone_rotated(c, qw, qh, qw, qh, 3, -90)     # Haut-droite : Page 3
-        draw_zone_rotated(c, 0, 0, qw, qh, 7, 90)        # Bas-gauche : Page 7
-        draw_zone_rotated(c, qw, 0, qw, qh, 6, -90)      # Bas-droite : Page 6
+        # VERSO : Page2(-90°), Page3(90°), Page7(-90°), Page6(90°)
+        draw_zone_rotated(c, 0, qh, qw, qh, 2, -90)      # Haut-gauche : Page 2
+        draw_zone_rotated(c, qw, qh, qw, qh, 3, 90)      # Haut-droite : Page 3
+        draw_zone_rotated(c, 0, 0, qw, qh, 7, -90)       # Bas-gauche : Page 7
+        draw_zone_rotated(c, qw, 0, qw, qh, 6, 90)       # Bas-droite : Page 6
         
         # Pointillés
         c.setDash(3, 3)
@@ -1128,10 +1128,10 @@ class LivretWindow(tk.Toplevel):
         current_page = 8
         while current_page <= len(halves):
             # RECTO : Pages n, n+1, n+2, n+3
-            draw_zone_rotated(c, 0, qh, qw, qh, current_page, 90)
-            draw_zone_rotated(c, qw, qh, qw, qh, current_page+1, -90)
-            draw_zone_rotated(c, 0, 0, qw, qh, current_page+2, 90)
-            draw_zone_rotated(c, qw, 0, qw, qh, current_page+3, -90)
+            draw_zone_rotated(c, 0, qh, qw, qh, current_page, -90)
+            draw_zone_rotated(c, qw, qh, qw, qh, current_page+1, 90)
+            draw_zone_rotated(c, 0, 0, qw, qh, current_page+2, -90)
+            draw_zone_rotated(c, qw, 0, qw, qh, current_page+3, 90)
             
             c.setDash(3, 3)
             c.setStrokeColorRGB(0.5, 0.5, 0.5)
@@ -1141,10 +1141,10 @@ class LivretWindow(tk.Toplevel):
             c.showPage()
             
             # VERSO : Pages n+4, n+5, n+6, n+7
-            draw_zone_rotated(c, 0, qh, qw, qh, current_page+4, 90)
-            draw_zone_rotated(c, qw, qh, qw, qh, current_page+5, -90)
-            draw_zone_rotated(c, 0, 0, qw, qh, current_page+6, 90)
-            draw_zone_rotated(c, qw, 0, qw, qh, current_page+7, -90)
+            draw_zone_rotated(c, 0, qh, qw, qh, current_page+4, -90)
+            draw_zone_rotated(c, qw, qh, qw, qh, current_page+5, 90)
+            draw_zone_rotated(c, 0, 0, qw, qh, current_page+6, -90)
+            draw_zone_rotated(c, qw, 0, qw, qh, current_page+7, 90)
             
             c.setDash(3, 3)
             c.setStrokeColorRGB(0.5, 0.5, 0.5)
