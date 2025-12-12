@@ -45,7 +45,7 @@ MIN_SPACES = 3
 
 APP_WINDOW_TITLE = "Edirep"
 MAIN_HEADER_TEXT = "Éditeur de répertoire téléphonique"
-STATUS_DEFAULT_TEXT = "KLM - Edirep - v3.5.0"
+STATUS_DEFAULT_TEXT = "KLM - Edirep - v3.7.0"
 
 BUTTON_LABELS = {
     'import_vcf': "Importer VCF",
@@ -63,7 +63,7 @@ PDF_DEFAULTS = {
     'date_text': "Édité le {}",
     'cover_line1': '',
     'cover_line2': '',
-    'back_line1': 'Édité avec Edirep v.3.5.0',
+    'back_line1': 'Édité avec Edirep v.3.7.0',
     'back_line2': 'KLM Software',
 }
 
@@ -1248,114 +1248,159 @@ class LivretWindow(tk.Toplevel):
 
 
     def _generate_fold_8(self, c, pw, ph, contacts_enabled):
-        """Pliage 8 : 16 pages sur 1 feuille (couv DANS l'imposition)"""
-        max_name_len = max(len(ct['name']) for ct in contacts_enabled) if contacts_enabled else 20
+        """Pliage 8 : 16 pages par feuille A4 paysage (8 zones : 4×2)
+        RECTO ligne1: 5,12,9,8 (180°) / ligne2: 4,13,16,1 (0°)
+        VERSO ligne1: 7,10,11,6 (180°) / ligne2: 2,15,14,3 (0°)
+        """
+        zw = pw / 4.0  # largeur d'une zone (1/4 de largeur)
+        zh = ph / 2.0  # hauteur d'une zone (1/2 de hauteur)
         
-        grouped = defaultdict(list)
-        for ct in contacts_enabled:
-            grouped[get_letter(ct['name'])].append(ct)
+        # Configuration
+        pdf_contact_pt = 7
+        pdf_heading_pt = 10
+        left_margin = 6 * mm
+        right_margin = 6 * mm
+        top_margin = 10 * mm
+        bottom_margin = 8 * mm
         
-        formatted_lines = []
-        for letter in sorted(grouped.keys()):
-            if formatted_lines:
-                formatted_lines.append(('space', '', '', '', {}))
-            formatted_lines.append(('letter', letter, '', '', {'size': 14}))
-            for ct in sorted(grouped[letter], key=lambda x: x['name'].lower()):
-                formatted_lines.append(('contact', '', ct['name'], ct['number'], {'size': 7}))
-            formatted_lines.append(('space', '', '', '', {}))
-
-        def draw_text_block(cobj, x, y, w, h, content, font_size=7):
-            leading = font_size * 1.2
-            cur_y = y + h - leading
-            char_width = font_size * 0.6
-            name_width = max_name_len * char_width
-            number_x = x + name_width + 6
+        # Calculer les demi-pages nécessaires (utiliser la largeur zw car zones plus petites)
+        halves, _ = make_logical_half_pages(
+            contacts_enabled,
+            contact_pt=pdf_contact_pt,
+            heading_pt=pdf_heading_pt,
+            page_h_pts=zh,  # Hauteur d'une zone
+            top_margin_pts=top_margin,
+            bottom_margin_pts=bottom_margin
+        )
+        
+        n_content_pages = len(halves)
+        
+        # Calculer le nombre de pages total nécessaire (avec arrondissement par 4)
+        if n_content_pages <= 14:
+            total_pages = 16  # 1 A4 : Couv + 14 pages + 4ème
+        else:
+            # Ajouter par groupe de 4
+            total_pages = 16 + ((n_content_pages - 14 + 3) // 4) * 4
+        
+        # Étendre halves avec des pages blanches si nécessaire
+        while len(halves) < total_pages - 2:  # -2 pour couv et 4ème
+            halves.append([])  # Page blanche
+        
+        # Fonction pour dessiner du texte dans une zone
+        def draw_text_in_zone(cobj, x, y, w, h, page_num):
+            # Mapper numéro de page → index dans halves
+            if page_num == 1:  # Couverture
+                cx, cy = x + w/2, y + h/2
+                cobj.setFont("Helvetica-Bold", 12)
+                cobj.drawCentredString(cx, cy + 10, self.title_var.get())
+                cobj.setFont("Helvetica", 8)
+                cobj.drawCentredString(cx, cy - 5, self.name_var.get())
+            elif page_num == total_pages:  # 4ème de couv
+                cx, cy = x + w/2, y + h/2
+                cobj.setFont("Helvetica-Bold", 9)
+                cobj.drawCentredString(cx, cy, COVER_TITLES.get('back_line1', ''))
+            else:
+                # Page de contenu
+                half_index = page_num - 2
+                if half_index < 0 or half_index >= len(halves):
+                    return  # Hors limites
+                
+                lines = halves[half_index]
+                if not lines:
+                    # Page blanche, juste le numéro
+                    pass
+                else:
+                    inner_left = x + left_margin
+                    inner_right = x + w - right_margin
+                    inner_width = inner_right - inner_left
+                    cur_y = y + h - top_margin
+                    
+                    for item in lines:
+                        if item[0] == 'B':
+                            cur_y -= int(pdf_heading_pt * 0.4)
+                        elif item[0] == 'H':
+                            _, letter = item
+                            cobj.setFont('Helvetica-Bold', pdf_heading_pt)
+                            cobj.drawString(inner_left, cur_y, letter)
+                            cur_y -= int(pdf_heading_pt * 1.15)
+                        elif item[0] == 'L':
+                            _, text = item
+                            name, number = text.split('|||')
+                            if len(name) > 20:
+                                name = name[:17] + '...'
+                            cobj.setFont('Courier', pdf_contact_pt)
+                            cobj.drawString(inner_left, cur_y, name)
+                            number_x = inner_left + int(inner_width * 0.55)
+                            cobj.drawString(number_x, cur_y, number)
+                            cur_y -= int(pdf_contact_pt * 1.07)
             
-            for line_type, text, name, number, style in content:
-                if cur_y < y + 4:
-                    break
-                if line_type == 'space':
-                    cur_y -= leading * 0.5
-                elif line_type == 'letter':
-                    size = style.get('size', 14)
-                    cobj.setFont("Helvetica-Bold", size)
-                    cobj.drawString(x + 2, cur_y, text)
-                    cur_y -= leading * 1.2
-                elif line_type == 'contact':
-                    size = style.get('size', font_size)
-                    cobj.setFont("Helvetica", size)
-                    cobj.drawString(x + 2, cur_y, name)
-                    cobj.drawString(number_x, cur_y, number)
-                    cur_y -= leading
-
-        def draw_zone_rotated(cobj, x, y, w, h, content, rotation, fs=7):
+            # Numéro de page (sauf couv et 4ème)
+            if page_num > 1 and page_num < total_pages:
+                cobj.setFont('Helvetica', 7)
+                if page_num % 2 == 0:  # Page paire → gauche
+                    cobj.drawString(x + 3, y + 3, str(page_num))
+                else:  # Page impaire → droite
+                    cobj.drawRightString(x + w - 3, y + 3, str(page_num))
+        
+        # Fonction pour dessiner une zone avec rotation
+        def draw_zone_rotated(cobj, x, y, w, h, page_num, rotation):
             cobj.saveState()
             if rotation == 180:
                 cobj.translate(x + w, y + h)
                 cobj.rotate(180)
-                draw_text_block(cobj, 2, 2, w - 4, h - 4, content, fs)
-            else:
-                draw_text_block(cobj, x + 2, y + 2, w - 4, h - 4, content, fs)
+                draw_text_in_zone(cobj, 0, 0, w, h, page_num)
+            else:  # 0°
+                draw_text_in_zone(cobj, x, y, w, h, page_num)
             cobj.restoreState()
-
-        def draw_small_cover(cobj, x, y, w, h, rotation):
-            cx, cy = x + w/2, y + h/2
-            cobj.setFont("Helvetica-Bold", 12)
-            cobj.drawCentredString(cx, cy + 10, self.title_var.get())
-            cobj.setFont("Helvetica", 8)
-            cobj.drawCentredString(cx, cy - 5, self.name_var.get())
-
-        def draw_small_back(cobj, x, y, w, h, rotation):
-            cx, cy = x + w/2, y + h/2
-            cobj.setFont("Helvetica-Bold", 9)
-            cobj.drawCentredString(cx, cy, COVER_TITLES.get('back_line1', ''))
-
-        zw = pw / 4.0
-        zh = ph / 2.0
-        n_pages = 13
-        per_page = max(1, len(formatted_lines) // n_pages)
-        pages_content = []
-        idx = 0
-        for i in range(n_pages):
-            end_idx = idx + per_page if i < n_pages - 1 else len(formatted_lines)
-            pages_content.append(formatted_lines[idx:end_idx])
-            idx = end_idx
-
-        # RECTO
-        if len(pages_content) >= 7:
-            draw_zone_rotated(c, 0*zw, zh, zw, zh, pages_content[6], 180, 7)
-        if len(pages_content) >= 6:
-            draw_zone_rotated(c, 1*zw, zh, zw, zh, pages_content[5], 180, 7)
-        if len(pages_content) >= 3:
-            draw_zone_rotated(c, 2*zw, zh, zw, zh, pages_content[2], 180, 7)
-        if len(pages_content) >= 10:
-            draw_zone_rotated(c, 3*zw, zh, zw, zh, pages_content[9], 180, 7)
         
-        draw_small_back(c, 0*zw, 0, zw, zh, 0)
-        draw_small_cover(c, 1*zw, 0, zw, zh, 0)
-        if len(pages_content) >= 2:
-            draw_zone_rotated(c, 2*zw, 0, zw, zh, pages_content[1], 0, 7)
-        if len(pages_content) >= 11:
-            draw_zone_rotated(c, 3*zw, 0, zw, zh, pages_content[10], 0, 7)
-        c.showPage()
-
-        # VERSO
-        if len(pages_content) >= 9:
-            draw_zone_rotated(c, 0*zw, zh, zw, zh, pages_content[8], 180, 7)
-        if len(pages_content) >= 4:
-            draw_zone_rotated(c, 1*zw, zh, zw, zh, pages_content[3], 180, 7)
-        if len(pages_content) >= 5:
-            draw_zone_rotated(c, 2*zw, zh, zw, zh, pages_content[4], 180, 7)
-        if len(pages_content) >= 8:
-            draw_zone_rotated(c, 3*zw, zh, zw, zh, pages_content[7], 180, 7)
+        last_page = total_pages
         
-        if len(pages_content) >= 12:
-            draw_zone_rotated(c, 0*zw, 0, zw, zh, pages_content[11], 0, 7)
-        if len(pages_content) >= 1:
-            draw_zone_rotated(c, 1*zw, 0, zw, zh, pages_content[0], 0, 7)
-        if len(pages_content) >= 13:
-            draw_zone_rotated(c, 3*zw, 0, zw, zh, pages_content[12], 0, 7)
+        # === A4 N°1 : Pages 1-16 ===
+        # RECTO ligne1: 5,12,9,8 (180°) / ligne2: 4,13,16,1 (0°)
+        draw_zone_rotated(c, 0*zw, zh, zw, zh, 5, 180)
+        draw_zone_rotated(c, 1*zw, zh, zw, zh, 12, 180)
+        draw_zone_rotated(c, 2*zw, zh, zw, zh, 9, 180)
+        draw_zone_rotated(c, 3*zw, zh, zw, zh, 8, 180)
+        
+        draw_zone_rotated(c, 0*zw, 0, zw, zh, 4, 0)
+        draw_zone_rotated(c, 1*zw, 0, zw, zh, 13, 0)
+        draw_zone_rotated(c, 2*zw, 0, zw, zh, 16, 0)  # 4ème de couv
+        draw_zone_rotated(c, 3*zw, 0, zw, zh, 1, 0)    # Couverture
+        
+        # Pointillés de pliage (3 verticaux + 1 horizontal)
+        c.setDash(2, 2)
+        c.setStrokeColorRGB(0.5, 0.5, 0.5)
+        c.line(zw, 0, zw, ph)      # Vertical 1
+        c.line(2*zw, 0, 2*zw, ph)  # Vertical 2
+        c.line(3*zw, 0, 3*zw, ph)  # Vertical 3
+        c.line(0, zh, pw, zh)      # Horizontal
+        c.setDash()
         c.showPage()
+        
+        # VERSO ligne1: 7,10,11,6 (180°) / ligne2: 2,15,14,3 (0°)
+        draw_zone_rotated(c, 0*zw, zh, zw, zh, 7, 180)
+        draw_zone_rotated(c, 1*zw, zh, zw, zh, 10, 180)
+        draw_zone_rotated(c, 2*zw, zh, zw, zh, 11, 180)
+        draw_zone_rotated(c, 3*zw, zh, zw, zh, 6, 180)
+        
+        draw_zone_rotated(c, 0*zw, 0, zw, zh, 2, 0)
+        draw_zone_rotated(c, 1*zw, 0, zw, zh, 15, 0)
+        draw_zone_rotated(c, 2*zw, 0, zw, zh, 14, 0)
+        draw_zone_rotated(c, 3*zw, 0, zw, zh, 3, 0)
+        
+        # Pointillés de pliage
+        c.setDash(2, 2)
+        c.setStrokeColorRGB(0.5, 0.5, 0.5)
+        c.line(zw, 0, zw, ph)
+        c.line(2*zw, 0, 2*zw, ph)
+        c.line(3*zw, 0, 3*zw, ph)
+        c.line(0, zh, pw, zh)
+        c.setDash()
+        c.showPage()
+        
+        # === FEUILLES SUPPLÉMENTAIRES (si nécessaire) ===
+        # TODO: Implémenter le système modulaire si besoin (+4 pages à la fois)
+        # Pour l'instant, on génère juste la première feuille
 
 # ========================= MAIN =========================
 if __name__ == '__main__':
