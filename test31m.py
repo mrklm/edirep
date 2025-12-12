@@ -45,7 +45,7 @@ MIN_SPACES = 3
 
 APP_WINDOW_TITLE = "Edirep"
 MAIN_HEADER_TEXT = "Éditeur de répertoire téléphonique"
-STATUS_DEFAULT_TEXT = "KLM - Edirep - v3.7.0"
+STATUS_DEFAULT_TEXT = "KLM - Edirep - v3.7.1"
 
 BUTTON_LABELS = {
     'import_vcf': "Importer VCF",
@@ -63,8 +63,8 @@ PDF_DEFAULTS = {
     'date_text': "Édité le {}",
     'cover_line1': '',
     'cover_line2': '',
-    'back_line1': 'Édité avec Edirep v.3.7.0',
-    'back_line2': 'KLM Software',
+    'back_line1': 'Édité avec Edirep v.3.7.1',
+    'back_line2': '',
 }
 
 COVER_TITLES = {
@@ -406,26 +406,34 @@ class KLMEditor(tk.Tk):
         self.left_canvas.create_window((0, 0), window=self.inner_frame, anchor='nw')
         self.inner_frame.bind('<Configure>', lambda e: self.left_canvas.configure(scrollregion=self.left_canvas.bbox('all')))
         
-        # Fonction pour binder récursivement tous les enfants
-        def bind_tree(widget):
-            if sys.platform.startswith('linux'):
-                widget.bind('<Button-4>', self._on_mousewheel_both, add='+')
-                widget.bind('<Button-5>', self._on_mousewheel_both, add='+')
-            else:
-                widget.bind('<MouseWheel>', self._on_mousewheel_both, add='+')
-            for child in widget.winfo_children():
-                bind_tree(child)
+        # Variable pour tracker quelle zone est active pour le scroll
+        self.scroll_target = None
         
-        # Binder le canvas, l'inner_frame et tous leurs enfants
-        bind_tree(self.left_canvas)
-        bind_tree(self.inner_frame)
+        # Détecter quand la souris entre/sort des zones
+        def on_enter_left(e):
+            self.scroll_target = 'left'
         
-        # Scroll synchronisé global
+        def on_leave_left(e):
+            self.scroll_target = None
+        
+        def on_enter_right(e):
+            self.scroll_target = 'right'
+        
+        def on_leave_right(e):
+            self.scroll_target = None
+        
+        # Binder les événements Enter/Leave
+        self.left_canvas.bind('<Enter>', on_enter_left)
+        self.left_canvas.bind('<Leave>', on_leave_left)
+        self.inner_frame.bind('<Enter>', on_enter_left)
+        self.inner_frame.bind('<Leave>', on_leave_left)
+        
+        # Scroll global
         if sys.platform.startswith('linux'):
-            self.bind_all('<Button-4>', self._on_mousewheel_both)
-            self.bind_all('<Button-5>', self._on_mousewheel_both)
+            self.bind_all('<Button-4>', self._on_mousewheel_smart)
+            self.bind_all('<Button-5>', self._on_mousewheel_smart)
         else:
-            self.bind_all('<MouseWheel>', self._on_mousewheel_both)
+            self.bind_all('<MouseWheel>', self._on_mousewheel_smart)
         
         main_pw.add(left_frame, minsize=280)
 
@@ -436,7 +444,11 @@ class KLMEditor(tk.Tk):
         self.preview_text.configure(yscrollcommand=self.vscroll_right.set)
         self.vscroll_right.pack(side='right', fill='y')
         self.preview_text.pack(side='left', fill='both', expand=True)
-        # Plus de bind ici, déjà fait au-dessus
+        
+        # Détecter la souris sur la prévisualisation
+        self.preview_text.bind('<Enter>', on_enter_right)
+        self.preview_text.bind('<Leave>', on_leave_right)
+        
         main_pw.add(right_frame, minsize=420)
 
         self.status_bar = tk.Frame(self, bg='#1976d2', height=26)
@@ -446,17 +458,20 @@ class KLMEditor(tk.Tk):
         self.version_label = tk.Label(self.status_bar, text=STATUS_DEFAULT_TEXT, bg='#1976d2', fg='#d0d0d0')
         self.version_label.pack(side='right', padx=6)
 
-    def _on_mousewheel_both(self, event):
-        """Scrolle les deux colonnes en même temps"""
+    def _on_mousewheel_smart(self, event):
+        """Scrolle uniquement la colonne où se trouve la souris"""
         if sys.platform.startswith('linux'):
-            if event.num == 4:
-                self.left_canvas.yview_scroll(-1, 'units')
-                self.preview_text.yview_scroll(-1, 'units')
-            elif event.num == 5:
-                self.left_canvas.yview_scroll(1, 'units')
-                self.preview_text.yview_scroll(1, 'units')
+            scroll_amount = -1 if event.num == 4 else 1
         else:
             scroll_amount = int(-1 * (event.delta / 120))
+        
+        # Scroller selon la zone active
+        if self.scroll_target == 'left':
+            self.left_canvas.yview_scroll(scroll_amount, 'units')
+        elif self.scroll_target == 'right':
+            self.preview_text.yview_scroll(scroll_amount, 'units')
+        else:
+            # Par défaut, scroller les deux (si souris ailleurs)
             self.left_canvas.yview_scroll(scroll_amount, 'units')
             self.preview_text.yview_scroll(scroll_amount, 'units')
     
@@ -464,11 +479,8 @@ class KLMEditor(tk.Tk):
         """Bind récursivement tous les widgets enfants pour le scroll"""
         def bind_tree(widget):
             try:
-                if sys.platform.startswith('linux'):
-                    widget.bind('<Button-4>', self._on_mousewheel_both, add='+')
-                    widget.bind('<Button-5>', self._on_mousewheel_both, add='+')
-                else:
-                    widget.bind('<MouseWheel>', self._on_mousewheel_both, add='+')
+                widget.bind('<Enter>', lambda e: setattr(self, 'scroll_target', 'left'), add='+')
+                widget.bind('<Leave>', lambda e: setattr(self, 'scroll_target', None), add='+')
                 for child in widget.winfo_children():
                     bind_tree(child)
             except Exception:
@@ -1133,9 +1145,12 @@ class LivretWindow(tk.Toplevel):
                 cx, cy = x + w/2, y + h/2
             
             cobj.setFont("Helvetica-Bold", 14)
-            cobj.drawCentredString(cx, cy + 15, self.title_var.get())
+            cobj.drawCentredString(cx, cy + 30, self.title_var.get())
             cobj.setFont("Helvetica", 9)
-            cobj.drawCentredString(cx, cy, self.name_var.get())
+            cobj.drawCentredString(cx, cy + 10, self.name_var.get())
+            cobj.setFont("Helvetica", 8)
+            cobj.drawCentredString(cx, cy - 10, self.count_var.get())
+            cobj.drawCentredString(cx, cy - 25, self.date_var.get())
             cobj.restoreState()
         
         # Fonction pour dessiner 4ème de couv avec rotation
@@ -1291,10 +1306,13 @@ class LivretWindow(tk.Toplevel):
             # Mapper numéro de page → index dans halves
             if page_num == 1:  # Couverture
                 cx, cy = x + w/2, y + h/2
-                cobj.setFont("Helvetica-Bold", 12)
-                cobj.drawCentredString(cx, cy + 10, self.title_var.get())
-                cobj.setFont("Helvetica", 8)
-                cobj.drawCentredString(cx, cy - 5, self.name_var.get())
+                cobj.setFont("Helvetica-Bold", 11)
+                cobj.drawCentredString(cx, cy + 20, self.title_var.get())
+                cobj.setFont("Helvetica", 7)
+                cobj.drawCentredString(cx, cy + 5, self.name_var.get())
+                cobj.setFont("Helvetica", 6)
+                cobj.drawCentredString(cx, cy - 10, self.count_var.get())
+                cobj.drawCentredString(cx, cy - 20, self.date_var.get())
             elif page_num == total_pages:  # 4ème de couv
                 cx, cy = x + w/2, y + h/2
                 cobj.setFont("Helvetica-Bold", 9)
