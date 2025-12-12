@@ -405,12 +405,28 @@ class KLMEditor(tk.Tk):
         self.inner_frame = tk.Frame(self.left_canvas)
         self.left_canvas.create_window((0, 0), window=self.inner_frame, anchor='nw')
         self.inner_frame.bind('<Configure>', lambda e: self.left_canvas.configure(scrollregion=self.left_canvas.bbox('all')))
-        # Scroll synchronisé sur les deux colonnes
+        
+        # Fonction pour binder récursivement tous les enfants
+        def bind_tree(widget):
+            if sys.platform.startswith('linux'):
+                widget.bind('<Button-4>', self._on_mousewheel_both, add='+')
+                widget.bind('<Button-5>', self._on_mousewheel_both, add='+')
+            else:
+                widget.bind('<MouseWheel>', self._on_mousewheel_both, add='+')
+            for child in widget.winfo_children():
+                bind_tree(child)
+        
+        # Binder le canvas, l'inner_frame et tous leurs enfants
+        bind_tree(self.left_canvas)
+        bind_tree(self.inner_frame)
+        
+        # Scroll synchronisé global
         if sys.platform.startswith('linux'):
             self.bind_all('<Button-4>', self._on_mousewheel_both)
             self.bind_all('<Button-5>', self._on_mousewheel_both)
         else:
             self.bind_all('<MouseWheel>', self._on_mousewheel_both)
+        
         main_pw.add(left_frame, minsize=280)
 
         right_frame = tk.Frame(main_pw, padx=6)
@@ -443,6 +459,21 @@ class KLMEditor(tk.Tk):
             scroll_amount = int(-1 * (event.delta / 120))
             self.left_canvas.yview_scroll(scroll_amount, 'units')
             self.preview_text.yview_scroll(scroll_amount, 'units')
+    
+    def _bind_mousewheel_to_tree(self):
+        """Bind récursivement tous les widgets enfants pour le scroll"""
+        def bind_tree(widget):
+            try:
+                if sys.platform.startswith('linux'):
+                    widget.bind('<Button-4>', self._on_mousewheel_both, add='+')
+                    widget.bind('<Button-5>', self._on_mousewheel_both, add='+')
+                else:
+                    widget.bind('<MouseWheel>', self._on_mousewheel_both, add='+')
+                for child in widget.winfo_children():
+                    bind_tree(child)
+            except Exception:
+                pass
+        bind_tree(self.inner_frame)
 
     def apply_theme(self):
         dark = self.dark.get()
@@ -624,6 +655,9 @@ class KLMEditor(tk.Tk):
         self.update_left_list_fonts()
         self.update_preview()
         self.status_label.config(text=f'Contacts : {len(self.contacts)}')
+        
+        # Re-binder tous les widgets pour le scroll
+        self._bind_mousewheel_to_tree()
 
     def update_left_list_fonts(self):
         size = self.left_contact_font.get()
@@ -1068,9 +1102,12 @@ class LivretWindow(tk.Toplevel):
                     cobj.drawString(number_x, cur_y, number)
                     cur_y -= int(pdf_contact_pt * 1.07)
             
-            # Numéro de page en bas à droite
+            # Numéro de page en bas : gauche pour pages paires, droite pour impaires
             cobj.setFont('Helvetica', 8)
-            cobj.drawRightString(x + w - 5, y + 5, str(page_num))
+            if page_num % 2 == 0:  # Page paire → numéro à GAUCHE
+                cobj.drawString(x + 5, y + 5, str(page_num))
+            else:  # Page impaire → numéro à DROITE
+                cobj.drawRightString(x + w - 5, y + 5, str(page_num))
         
         # Fonction pour dessiner une zone avec rotation 90° ou -90°
         def draw_zone_rotated(cobj, x, y, w, h, page_num, rotation):
