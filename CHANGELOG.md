@@ -7,6 +7,22 @@ et ce projet adhère au [Versioning Sémantique](https://semver.org/lang/fr/).
 
 ---
 
+## [3.8.0] - 2024-12-13
+
+### Ajouté
+
+- Création d'un texte d'aide qui s'affiche dans la partie "visualisation" au demarage 
+- bouton pour afficher l'aide en mirroir du bouton "mode sombre"
+
+## [3.7.0] - 2024-12-13
+
+### Ajouté
+- Changement du logo et modification de son emplacement
+
+### Corrigé
+
+- ajustement des titres 
+
 ## [3.6.2] - 2024-12-13
 
 ### Ajouté
