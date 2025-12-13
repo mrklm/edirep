@@ -828,7 +828,7 @@ class LivretWindow(tk.Toplevel):
         
         tk.Label(self, text='Titre (ligne 1) :').pack(anchor='w', padx=8, pady=(10,2))
         self.title_var = tk.StringVar(value=PDF_DEFAULTS['title_line1'])
-        tk.Entry(self, textvariable=self.title_var, width=72).pack(padx=8)
+        tk.Entry(self, textvariable=self.title_var, width=72, state='readonly', readonlybackground='#f0f0f0', fg='black').pack(padx=8)
         
         tk.Label(self, text='Ligne 2 (nom) :').pack(anchor='w', padx=8, pady=(8,2))
         self.name_var = tk.StringVar(value=PDF_DEFAULTS['title_line2'])
