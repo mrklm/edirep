@@ -82,11 +82,11 @@ BTN_ACTIVE_BG = '#0b5291'
 BTN_ACTIVE_FG = 'white'
 TTK_STYLE_NAME = "Blue.TButton"
 
-LOGO_CROP_LIGHT = (0.05, 0.05, 0.05, 0.05)
-LOGO_CROP_DARK  = (0.18, 0.18, 0.18, 0.18)
-LOGO_MAX_UI_WIDTH = 75
-LOGO_CROP_PDF = (0.15, 0.15, 0.15, 0.15)
-LOGO_MAX_PDF_WIDTH = 50
+LOGO_CROP_LIGHT = (0.00, 0.00, 0.00, 0.00)
+LOGO_CROP_DARK  = (0.00, 0.00, 0.00, 0.00)
+LOGO_MAX_UI_WIDTH = 100
+LOGO_CROP_PDF = (0.00, 0.00, 0.00, 0.00)
+LOGO_MAX_PDF_WIDTH = 100
 
 # ------------------------- UTILITAIRES -------------------------
 
@@ -946,13 +946,13 @@ class LivretWindow(tk.Toplevel):
 
         # 4ème de couv (gauche)
         c.setFont("Helvetica-Bold", 12)
-        c.drawCentredString(left_center_x, ph * 0.72, COVER_TITLES.get('back_line1', ''))
+        c.drawCentredString(left_center_x, ph * 0.60, COVER_TITLES.get('back_line1', ''))
         try:
             if self.logo_path and os.path.exists(self.logo_path):
                 logo_w = 40 * mm
                 logo_h = 40 * mm
                 logo_x = left_center_x - (logo_w / 2.0)
-                logo_y = ph * 0.52
+                logo_y = ph * 0.35
                 c.drawImage(self.logo_path, logo_x, logo_y, width=logo_w, height=logo_h,
                            preserveAspectRatio=True, mask='auto')
         except Exception:
