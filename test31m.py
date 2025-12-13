@@ -58,7 +58,7 @@ BUTTON_LABELS = {
 
 PDF_DEFAULTS = {
     'title_line1': "Répertoire téléphonique",
-    'title_line2': "Insérez votre nom ici",
+    'title_line2': "",
     'count_text': "{} contacts",
     'date_text': "Édité le {}",
     'cover_line1': '',
@@ -830,7 +830,7 @@ class LivretWindow(tk.Toplevel):
         self.title_var = tk.StringVar(value=PDF_DEFAULTS['title_line1'])
         tk.Entry(self, textvariable=self.title_var, width=72, state='readonly', readonlybackground='#f0f0f0', fg='black').pack(padx=8)
         
-        tk.Label(self, text='Ligne 2 (nom) :').pack(anchor='w', padx=8, pady=(8,2))
+        tk.Label(self, text='Ligne 2 (Insérez votre nom ici) :').pack(anchor='w', padx=8, pady=(8,2))
         self.name_var = tk.StringVar(value=PDF_DEFAULTS['title_line2'])
         tk.Entry(self, textvariable=self.name_var, width=72).pack(padx=8)
         
