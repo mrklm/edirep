@@ -16,6 +16,7 @@ import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 from collections import defaultdict
 from datetime import datetime
+from pathlib import Path
 
 # Optional libraries
 try:
@@ -45,7 +46,7 @@ MIN_SPACES = 3
 
 APP_WINDOW_TITLE = "Edirep"
 MAIN_HEADER_TEXT = "Éditeur de répertoire téléphonique"
-STATUS_DEFAULT_TEXT = "KLM - Edirep - v3.7.2"
+STATUS_DEFAULT_TEXT = "KLM - Edirep - v3.8.0"
 
 BUTTON_LABELS = {
     'import_vcf': "Importer VCF",
@@ -58,13 +59,13 @@ BUTTON_LABELS = {
 
 PDF_DEFAULTS = {
     'title_line1': "Répertoire téléphonique",
-    'title_line2': "",
+    'title_line2': "Insérez votre nom ici",
     'count_text': "{} contacts",
     'date_text': "Édité le {}",
     'cover_line1': '',
     'cover_line2': '',
-    'back_line1': 'Édité avec Edirep v.3.7.2',
-    'back_line2': '',
+    'back_line1': 'Édité avec Edirep v.3.8.0',
+    'back_line2': 'KLM Software',
 }
 
 COVER_TITLES = {
@@ -294,6 +295,7 @@ class KLMEditor(tk.Tk):
 
         # tk vars
         self.dark = tk.BooleanVar(value=False)
+        self.show_help = tk.BooleanVar(value=True)  # Afficher l'aide au démarrage
         self.letter_font_size = tk.IntVar(value=FIXED_LETTER_SIZE)
         self.contact_font_size = tk.IntVar(value=FIXED_CONTACT_SIZE)
         self.left_contact_font = tk.IntVar(value=12)
@@ -383,6 +385,11 @@ class KLMEditor(tk.Tk):
         self.logo_label.pack(pady=(4,6))
         btn_frame = tk.Frame(self.button_bar, bg='#1976d2')
         btn_frame.pack()
+        
+        # Case "Afficher l'aide" à gauche (miroir du mode nuit)
+        tk.Checkbutton(self.button_bar, text='❓ Afficher l\'aide', variable=self.show_help, command=self.toggle_help,
+                       bg='#1976d2', fg='#d0d0d0', selectcolor='#1976d2', relief='flat').pack(side='left', padx=8)
+        
         ttk.Button(btn_frame, text=BUTTON_LABELS['import_vcf'], command=self.load_vcf, style=TTK_STYLE_NAME).pack(side='left', padx=4)
         ttk.Button(btn_frame, text=BUTTON_LABELS['dedupe'], command=self.manual_remove_duplicates, style=TTK_STYLE_NAME).pack(side='left', padx=4)
         ttk.Button(btn_frame, text=BUTTON_LABELS['export_txt'], command=self.export_txt, style=TTK_STYLE_NAME).pack(side='left', padx=4)
@@ -391,6 +398,8 @@ class KLMEditor(tk.Tk):
         ttk.Button(btn_frame, text=BUTTON_LABELS['livret'],
                    command=lambda: LivretWindow(self, self.contacts, logo_path=self.logo_path),
                    style=TTK_STYLE_NAME).pack(side='left', padx=8)
+        
+        # Case mode nuit à droite
         tk.Checkbutton(self.button_bar, text='🌙', variable=self.dark, command=self.apply_theme,
                        bg='#1976d2', fg='#d0d0d0', selectcolor='#1976d2', relief='flat').pack(side='right', padx=8)
 
@@ -444,6 +453,9 @@ class KLMEditor(tk.Tk):
         self.preview_text.configure(yscrollcommand=self.vscroll_right.set)
         self.vscroll_right.pack(side='right', fill='y')
         self.preview_text.pack(side='left', fill='both', expand=True)
+        
+        # Afficher l'aide au démarrage (après création du widget)
+        self.after(100, self.display_help)
         
         # Détecter la souris sur la prévisualisation
         self.preview_text.bind('<Enter>', on_enter_right)
@@ -525,12 +537,83 @@ class KLMEditor(tk.Tk):
         except Exception:
             pass
         self.update_left_list_fonts()
-        self.update_preview()
+        
+        # Re-afficher l'aide si activée, sinon update preview
+        if self.show_help.get():
+            self.display_help()
+        else:
+            self.update_preview()
+
+    def load_help_content(self):
+        """Charge et formate le contenu du fichier AIDE.md"""
+        help_path = Path(__file__).parent / "AIDE.md"
+        if not help_path.exists():
+            return "# Aide non disponible\n\nLe fichier AIDE.md est introuvable."
+        
+        try:
+            with open(help_path, 'r', encoding='utf-8') as f:
+                return f.read()
+        except Exception:
+            return "# Erreur\n\nImpossible de charger le fichier d'aide."
+    
+    def toggle_help(self):
+        """Affiche ou masque l'aide dans la prévisualisation"""
+        if self.show_help.get():
+            # Afficher l'aide
+            self.display_help()
+        else:
+            # Masquer l'aide (afficher les contacts)
+            self.update_preview()
+    
+    def display_help(self):
+        """Affiche le contenu de l'aide formaté dans preview_text"""
+        self.preview_text.configure(state='normal')
+        self.preview_text.delete('1.0', 'end')
+        
+        help_content = self.load_help_content()
+        
+        # Parser et formater le Markdown basique
+        for line in help_content.split('\n'):
+            if line.startswith('# '):  # Titre H1
+                self.preview_text.insert('end', line[2:] + '\n', 'h1')
+            elif line.startswith('## '):  # Titre H2
+                self.preview_text.insert('end', '\n' + line[3:] + '\n', 'h2')
+            elif line.startswith('### '):  # Titre H3
+                self.preview_text.insert('end', line[4:] + '\n', 'h3')
+            elif line.strip().startswith('**') and line.strip().endswith('**'):  # Gras seul
+                self.preview_text.insert('end', line.strip()[2:-2] + '\n', 'bold')
+            elif '**' in line:  # Ligne avec gras
+                parts = line.split('**')
+                for i, part in enumerate(parts):
+                    if i % 2 == 0:
+                        self.preview_text.insert('end', part, 'normal')
+                    else:
+                        self.preview_text.insert('end', part, 'bold')
+                self.preview_text.insert('end', '\n')
+            elif line.strip() == '---':  # Séparateur
+                self.preview_text.insert('end', '\n' + '─' * 60 + '\n\n', 'separator')
+            else:  # Texte normal
+                self.preview_text.insert('end', line + '\n', 'normal')
+        
+        # Configuration des tags
+        self.preview_text.tag_configure('h1', font=('Helvetica', 21, 'bold'), spacing3=10)
+        self.preview_text.tag_configure('h2', font=('Helvetica', 17, 'bold'), spacing3=8, foreground='#1976d2')
+        self.preview_text.tag_configure('h3', font=('Helvetica', 15, 'bold'), spacing3=6)
+        self.preview_text.tag_configure('bold', font=('Helvetica', 13, 'bold'))
+        self.preview_text.tag_configure('normal', font=('Helvetica', 13))
+        self.preview_text.tag_configure('separator', foreground='#888888')
+        
+        self.preview_text.configure(state='disabled')
 
     def load_vcf(self):
         path = filedialog.askopenfilename(filetypes=[('Fichier VCF', '*.vcf')])
         if not path:
             return
+        
+        # Décocher l'aide au premier import
+        if self.show_help.get():
+            self.show_help.set(False)
+        
         new = parse_vcf(path)
         if not new:
             messagebox.showinfo('Aucun contact', 'Aucun contact trouvé dans ce fichier VCF.')
@@ -830,7 +913,7 @@ class LivretWindow(tk.Toplevel):
         self.title_var = tk.StringVar(value=PDF_DEFAULTS['title_line1'])
         tk.Entry(self, textvariable=self.title_var, width=72).pack(padx=8)
         
-        tk.Label(self, text='Ligne 2 (Insérez votre nom ici) :').pack(anchor='w', padx=8, pady=(8,2))
+        tk.Label(self, text='Ligne 2 (nom) :').pack(anchor='w', padx=8, pady=(8,2))
         self.name_var = tk.StringVar(value=PDF_DEFAULTS['title_line2'])
         tk.Entry(self, textvariable=self.name_var, width=72).pack(padx=8)
         
@@ -946,13 +1029,13 @@ class LivretWindow(tk.Toplevel):
 
         # 4ème de couv (gauche)
         c.setFont("Helvetica-Bold", 12)
-        c.drawCentredString(left_center_x, ph * 0.6, COVER_TITLES.get('back_line1', ''))
+        c.drawCentredString(left_center_x, ph * 0.72, COVER_TITLES.get('back_line1', ''))
         try:
             if self.logo_path and os.path.exists(self.logo_path):
                 logo_w = 40 * mm
                 logo_h = 40 * mm
                 logo_x = left_center_x - (logo_w / 2.0)
-                logo_y = ph * 0.4
+                logo_y = ph * 0.52
                 c.drawImage(self.logo_path, logo_x, logo_y, width=logo_w, height=logo_h,
                            preserveAspectRatio=True, mask='auto')
         except Exception:
@@ -1171,7 +1254,7 @@ class LivretWindow(tk.Toplevel):
                 if self.logo_path and os.path.exists(self.logo_path):
                     logo_size = 15 * mm
                     logo_x = cx - (logo_size / 2.0)
-                    logo_y = cy - 35. # plus le nombre est grand plus le logo est bas
+                    logo_y = cy - 10
                     cobj.drawImage(self.logo_path, logo_x, logo_y, 
                                   width=logo_size, height=logo_size,
                                   preserveAspectRatio=True, mask='auto')
@@ -1339,7 +1422,7 @@ class LivretWindow(tk.Toplevel):
                     if self.logo_path and os.path.exists(self.logo_path):
                         logo_size = 12 * mm
                         logo_x = cx - (logo_size / 2.0)
-                        logo_y = cy - 35. # plus le nombre est grand plus le logo est bas
+                        logo_y = cy - 8
                         cobj.drawImage(self.logo_path, logo_x, logo_y, 
                                       width=logo_size, height=logo_size,
                                       preserveAspectRatio=True, mask='auto')
