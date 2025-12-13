@@ -45,7 +45,7 @@ MIN_SPACES = 3
 
 APP_WINDOW_TITLE = "Edirep"
 MAIN_HEADER_TEXT = "Éditeur de répertoire téléphonique"
-STATUS_DEFAULT_TEXT = "KLM - Edirep - v3.7.1"
+STATUS_DEFAULT_TEXT = "KLM - Edirep - v3.7.2"
 
 BUTTON_LABELS = {
     'import_vcf': "Importer VCF",
@@ -63,7 +63,7 @@ PDF_DEFAULTS = {
     'date_text': "Édité le {}",
     'cover_line1': '',
     'cover_line2': '',
-    'back_line1': 'Édité avec Edirep v.3.7.1',
+    'back_line1': 'Édité avec Edirep v.3.7.2',
     'back_line2': '',
 }
 
@@ -82,11 +82,11 @@ BTN_ACTIVE_BG = '#0b5291'
 BTN_ACTIVE_FG = 'white'
 TTK_STYLE_NAME = "Blue.TButton"
 
-LOGO_CROP_LIGHT = (0.00, 0.00, 0.00, 0.00)
-LOGO_CROP_DARK  = (0.00, 0.00, 0.00, 0.00)
-LOGO_MAX_UI_WIDTH = 100
-LOGO_CROP_PDF = (0.00, 0.00, 0.00, 0.00)
-LOGO_MAX_PDF_WIDTH = 100
+LOGO_CROP_LIGHT = (0.05, 0.05, 0.05, 0.05)
+LOGO_CROP_DARK  = (0.18, 0.18, 0.18, 0.18)
+LOGO_MAX_UI_WIDTH = 75
+LOGO_CROP_PDF = (0.15, 0.15, 0.15, 0.15)
+LOGO_MAX_PDF_WIDTH = 50
 
 # ------------------------- UTILITAIRES -------------------------
 
@@ -828,7 +828,7 @@ class LivretWindow(tk.Toplevel):
         
         tk.Label(self, text='Titre (ligne 1) :').pack(anchor='w', padx=8, pady=(10,2))
         self.title_var = tk.StringVar(value=PDF_DEFAULTS['title_line1'])
-        tk.Entry(self, textvariable=self.title_var, width=72, state='readonly', readonlybackground='#f0f0f0', fg='black').pack(padx=8)
+        tk.Entry(self, textvariable=self.title_var, width=72).pack(padx=8)
         
         tk.Label(self, text='Ligne 2 (Insérez votre nom ici) :').pack(anchor='w', padx=8, pady=(8,2))
         self.name_var = tk.StringVar(value=PDF_DEFAULTS['title_line2'])
@@ -946,13 +946,13 @@ class LivretWindow(tk.Toplevel):
 
         # 4ème de couv (gauche)
         c.setFont("Helvetica-Bold", 12)
-        c.drawCentredString(left_center_x, ph * 0.60, COVER_TITLES.get('back_line1', ''))
+        c.drawCentredString(left_center_x, ph * 0.6, COVER_TITLES.get('back_line1', ''))
         try:
             if self.logo_path and os.path.exists(self.logo_path):
                 logo_w = 40 * mm
                 logo_h = 40 * mm
                 logo_x = left_center_x - (logo_w / 2.0)
-                logo_y = ph * 0.35
+                logo_y = ph * 0.4
                 c.drawImage(self.logo_path, logo_x, logo_y, width=logo_w, height=logo_h,
                            preserveAspectRatio=True, mask='auto')
         except Exception:
@@ -1163,8 +1163,24 @@ class LivretWindow(tk.Toplevel):
             else:
                 cx, cy = x + w/2, y + h/2
             
-            cobj.setFont("Helvetica-Bold", 10)
-            cobj.drawCentredString(cx, cy, COVER_TITLES.get('back_line1', ''))
+            cobj.setFont("Helvetica-Bold", 9)
+            cobj.drawCentredString(cx, cy + 20, COVER_TITLES.get('back_line1', ''))
+            
+            # Logo
+            try:
+                if self.logo_path and os.path.exists(self.logo_path):
+                    logo_size = 15 * mm
+                    logo_x = cx - (logo_size / 2.0)
+                    logo_y = cy - 35. # plus le nombre est grand plus le logo est bas
+                    cobj.drawImage(self.logo_path, logo_x, logo_y, 
+                                  width=logo_size, height=logo_size,
+                                  preserveAspectRatio=True, mask='auto')
+            except Exception:
+                pass
+            
+            cobj.setFont("Helvetica-Bold", 8)
+            cobj.drawCentredString(cx, cy - 30, COVER_TITLES.get('back_line2', ''))
+            
             cobj.restoreState()
         
         # === A4 N°1 : Couv + 4ème + premières et dernières pages ===
@@ -1315,8 +1331,23 @@ class LivretWindow(tk.Toplevel):
                 cobj.drawCentredString(cx, cy - 20, self.date_var.get())
             elif page_num == total_pages:  # 4ème de couv
                 cx, cy = x + w/2, y + h/2
-                cobj.setFont("Helvetica-Bold", 9)
-                cobj.drawCentredString(cx, cy, COVER_TITLES.get('back_line1', ''))
+                cobj.setFont("Helvetica-Bold", 8)
+                cobj.drawCentredString(cx, cy + 15, COVER_TITLES.get('back_line1', ''))
+                
+                # Logo
+                try:
+                    if self.logo_path and os.path.exists(self.logo_path):
+                        logo_size = 12 * mm
+                        logo_x = cx - (logo_size / 2.0)
+                        logo_y = cy - 35. # plus le nombre est grand plus le logo est bas
+                        cobj.drawImage(self.logo_path, logo_x, logo_y, 
+                                      width=logo_size, height=logo_size,
+                                      preserveAspectRatio=True, mask='auto')
+                except Exception:
+                    pass
+                
+                cobj.setFont("Helvetica-Bold", 7)
+                cobj.drawCentredString(cx, cy - 25, COVER_TITLES.get('back_line2', ''))
             else:
                 # Page de contenu
                 half_index = page_num - 2
