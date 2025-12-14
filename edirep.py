@@ -61,7 +61,7 @@ BUTTON_LABELS = {
 
 PDF_DEFAULTS = {
     'title_line1': "Répertoire téléphonique",
-    'title_line2': "",
+    'title_line2': "", # rien dans ce champs: si oublis de renseigner le nom: pas de "inserer votre nom ici" sur le livret pdf
     'count_text': "{} contacts",
     'date_text': "Édité le {}",
     'cover_line1': '',
@@ -945,19 +945,19 @@ class LivretWindow(tk.Toplevel):
         self.contacts = contacts
         self.logo_path = logo_path
         
-        tk.Label(self, text='Titre (ligne 1) :').pack(anchor='w', padx=8, pady=(10,2))
+        tk.Label(self, text='Titre:').pack(anchor='w', padx=8, pady=(10,2))
         self.title_var = tk.StringVar(value=PDF_DEFAULTS['title_line1'])
         tk.Entry(self, textvariable=self.title_var, width=72, state='readonly', readonlybackground='#f0f0f0', fg='black').pack(padx=8)
         
-        tk.Label(self, text='Ligne 2 (insérez votre nom ici) :').pack(anchor='w', padx=8, pady=(8,2))
+        tk.Label(self, text='Insérez votre nom ici:').pack(anchor='w', padx=8, pady=(8,2))
         self.name_var = tk.StringVar(value=PDF_DEFAULTS['title_line2'])
         tk.Entry(self, textvariable=self.name_var, width=72).pack(padx=8)
         
-        tk.Label(self, text='Ligne 3 (nombre contacts) :').pack(anchor='w', padx=8, pady=(8,2))
+        tk.Label(self, text='Nombre contacts:').pack(anchor='w', padx=8, pady=(8,2))
         self.count_var = tk.StringVar(value=PDF_DEFAULTS['count_text'].format(self._enabled_count()))
         tk.Entry(self, textvariable=self.count_var, width=72, state='readonly', readonlybackground='#f0f0f0', fg='black').pack(padx=8)
         
-        tk.Label(self, text='Ligne 4 (date) :').pack(anchor='w', padx=8, pady=(8,2))
+        tk.Label(self, text='Date:').pack(anchor='w', padx=8, pady=(8,2))
         self.date_var = tk.StringVar(value=PDF_DEFAULTS['date_text'].format(datetime.now().strftime('%d %B %Y')))
         tk.Entry(self, textvariable=self.date_var, width=72, state='readonly', readonlybackground='#f0f0f0', fg='black').pack(padx=8)
         
