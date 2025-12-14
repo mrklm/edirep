@@ -533,6 +533,13 @@ class KLMEditor(tk.Tk):
         fg = '#d0d0d0'
         txt_bg = '#111111' if dark else 'white'
         txt_fg = 'white' if dark else 'black'
+
+        # Forcer noir sur Linux pour certains frames
+        if sys.platform.startswith('linux'):
+            frame_bg = '#000000'
+        else:
+            frame_bg = None  # Sur Mac, ne rien changer
+
         try:
             self.configure(bg=bg)
             self.button_bar.configure(bg=bg)
@@ -540,6 +547,17 @@ class KLMEditor(tk.Tk):
             self.inner_frame.configure(bg=bg)
             if self.logo_label:
                 self.logo_label.configure(bg=bg)
+
+            # Forcer noir sur Linux
+            if frame_bg is not None:
+                if hasattr(self, 'left_canvas'):
+                    self.left_canvas.configure(bg=frame_bg)
+                # Forcer aussi sur les frames enfants
+                for widget in [self.inner_frame]:
+                    for child in widget.winfo_children():
+                        if isinstance(child, tk.Frame):
+                            child.configure(bg=frame_bg)
+
         except Exception:
             pass
         def recolor(w):
