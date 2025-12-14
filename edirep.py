@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
                 Edirep — Éditeur de répertoire téléphonique
-                Tkinter UI / Reportlab / Pilow  import VCF
+                Tkinter UI / Reportlab / Pillow / Pil /odfpy
                 Prévisualisation, exports TXT/ODT/ODS/PDF
                 Repérage auto des doublons, tri manuel 
                 Édition de 3 types de livrets PDF 
@@ -304,7 +304,7 @@ class KLMEditor(tk.Tk):
 
         # logo placeholders
         try:
-            base = os.path.dirname(__file__)
+            base = os.path.dirname(os.path.abspath(__file__))
         except Exception:
             base = os.getcwd()
         self.logo_path = os.path.join(base, "logo.png")
