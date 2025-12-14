@@ -18,9 +18,27 @@ On importe un fichier `.VCF` depuis un téléphone, on l'édite si besoin et on 
 ## 📥 Téléchargement
 
 ### Applications standalone (recommandé pour utilisateurs)
-- **macOS** : [Edirep-macOS-v3.8.1.zip](#) _(à publier dans GitHub Releases)_
+
+- **macOS** : [Edirep-macOS-v3.8.1.zip](https://github.com/mrklm/codes/releases)
+- **Ubuntu/Linux** : [Edirep-Ubuntu-v3.8.1.zip](https://github.com/mrklm/codes/releases)
 - **Windows** : _(à venir)_
-- **Linux** : Voir installation depuis les sources ci-dessous
+
+#### Instructions Ubuntu/Linux après téléchargement :
+
+1. Extrayez l'archive
+2. Rendez le fichier exécutable :
+```bash
+   chmod +x edirep
+```
+3. Lancez :
+```bash
+   ./edirep
+```
+
+**Prérequis** : Si le programme ne se lance pas, installez :
+```bash
+sudo apt install python3-tk
+```
 
 ---
 
@@ -60,8 +78,6 @@ Téléchargez la version correspondante à votre système d'exploitation :
 ```bash
    python3 edirep.py
 ```
-
----
 
 ## 📜 Licence
 
