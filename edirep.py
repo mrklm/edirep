@@ -389,8 +389,24 @@ class KLMEditor(tk.Tk):
         btn_frame.pack()
         
         # Case "Afficher l'aide" à gauche (miroir du mode nuit)
-        tk.Checkbutton(self.button_bar, text='❓ Afficher l\'aide', variable=self.show_help, command=self.toggle_help,
-                       bg='#1976d2', fg='#d0d0d0', selectcolor='#1976d2', relief='flat').pack(side='left', padx=8)
+        # Frame container
+        help_container = tk.Frame(self.button_bar, bg='#1976d2')
+        help_container.pack(side='left', padx=8)
+
+        # Style TTK pour l'emoji rouge
+        help_emoji_style = ttk.Style()
+        help_emoji_style.configure('HelpEmoji.TLabel', 
+                                background='#1976d2', 
+                                foreground='red',  # Rouge pur
+                                font=('Arial', 14))
+
+        # Label TTK avec emoji (respecte foreground sur Linux)
+        ttk.Label(help_container, text='❓', style='HelpEmoji.TLabel').pack(side='left')
+
+        # Checkbutton normale avec texte
+        tk.Checkbutton(help_container, text=' Afficher l\'aide', variable=self.show_help, 
+                    command=self.toggle_help, bg='#1976d2', fg='#d0d0d0', 
+                    selectcolor='#1976d2', relief='flat').pack(side='left', padx=2)
         
         ttk.Button(btn_frame, text=BUTTON_LABELS['import_vcf'], command=self.load_vcf, style=TTK_STYLE_NAME).pack(side='left', padx=4)
         ttk.Button(btn_frame, text=BUTTON_LABELS['dedupe'], command=self.manual_remove_duplicates, style=TTK_STYLE_NAME).pack(side='left', padx=4)
