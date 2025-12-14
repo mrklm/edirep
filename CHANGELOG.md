@@ -14,6 +14,7 @@ et ce projet adhère au [Versioning Sémantique](https://semver.org/lang/fr/).
 - Le point d'inttérrogation en rouge sous Ubuntu
 - La colonne édition noir sous Ubuntu
 - Affichage du Logo sous Ubuntu  
+- Placement logo dans les livret 4 & 8 plis
 
 ## [3.8.0] - 2024-12-13
 
