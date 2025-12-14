@@ -2,10 +2,12 @@
 # -*- coding: utf-8 -*-
 """
                 Edirep — Éditeur de répertoire téléphonique
-- Tkinter UI : import VCF, édition modale, prévisualisation, exports TXT/ODT/ODS.
-         Tri manuel des doublons, export livret PDF avec imposition.
-- mode sombre, logo normal + logo inversé (crop configurable séparé pour clair/sombre).
-                            klm novembre 2025
+                Tkinter UI / Reportlab / Pilow  import VCF
+                Prévisualisation, exports TXT/ODT/ODS/PDF
+                Repérage auto des doublons, tri manuel 
+                Édition de 3 types de livrets PDF 
+                Séction aide & mode sombre 
+                klm novembre 2025
 """
 
 import os
