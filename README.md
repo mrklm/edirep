@@ -46,7 +46,7 @@ sudo apt install python3-tk
 
 ### Option 1 : Applications standalone (recommandé)
 Téléchargez la version correspondante à votre système d'exploitation :
-- **macOS** : [Edirep-macOS-v3.8.1.zip](#) _(à publier dans GitHub Releases)_
+- **macOS** : [Edirep-macOS-v3.8.1.zip](#) 
 - **Windows** : _(à venir)_
 - **Linux** : Voir installation depuis les sources ci-dessous
 
