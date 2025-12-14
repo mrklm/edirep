@@ -7,12 +7,20 @@ et ce projet adhère au [Versioning Sémantique](https://semver.org/lang/fr/).
 
 ---
 
+## [3.8.1] - 2024-12-13
+
+### Corrigé
+
+- Le point d'inttérrogation en rouge sous Ubuntu
+- La colonne édition noir sous Ubuntu
+- Affichage du Logo sous Ubuntu  
+
 ## [3.8.0] - 2024-12-13
 
 ### Ajouté
 
 - Création d'un texte d'aide qui s'affiche dans la partie "visualisation" au demarage 
-- bouton pour afficher l'aide en mirroir du bouton "mode sombre"
+- Bouton pour afficher l'aide en mirroir du bouton "mode sombre"
 
 ## [3.7.0] - 2024-12-13
 

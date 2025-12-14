@@ -48,7 +48,7 @@ MIN_SPACES = 3
 
 APP_WINDOW_TITLE = "Edirep"
 MAIN_HEADER_TEXT = "Éditeur de répertoire téléphonique"
-STATUS_DEFAULT_TEXT = "KLM - Edirep - v3.8.0"
+STATUS_DEFAULT_TEXT = "KLM - Edirep - v3.8.1"
 
 BUTTON_LABELS = {
     'import_vcf': "Importer VCF",
@@ -66,7 +66,7 @@ PDF_DEFAULTS = {
     'date_text': "Édité le {}",
     'cover_line1': '',
     'cover_line2': '',
-    'back_line1': 'Édité avec Edirep v.3.8.0',
+    'back_line1': 'Édité avec Edirep v.3.8.1',
     'back_line2': '',
 }
 
