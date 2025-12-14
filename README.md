@@ -63,16 +63,22 @@ Téléchargez la version correspondante à votre système d'exploitation :
 
 ---
 
-## 📜 Licence et conditions d'utilisation
+## 📜 Licence
 
-Ce logiciel est distribué sous la **licence GNU GPL v3**, avec une clause supplémentaire interdisant tout usage commercial.
+Ce logiciel est distribué sous la **[GNU General Public License v3.0](LICENSE)**.
 
-- **Vous êtes libre** de copier, modifier et redistribuer ce logiciel, sous réserve de respecter les termes de la licence.
-- **Vous ne pouvez pas** utiliser ce logiciel ou ses dérivés à des fins commerciales sans autorisation écrite de l'auteur.
-- Toute modification doit être redistribuée sous la même licence.
+Vous êtes libre de :
+- ✅ Utiliser ce logiciel à toute fin (y compris commerciale)
+- ✅ Étudier et modifier le code source
+- ✅ Redistribuer le logiciel
+- ✅ Redistribuer vos modifications
+
+**À condition de** :
+- 📝 Conserver la même licence GPL v3
+- 📝 Rendre le code source disponible
+- 📝 Documenter vos modifications
 
 Pour plus de détails, consultez le fichier [LICENSE](LICENSE).
-
 ---
 
 ## 🛠️ Contribuer
