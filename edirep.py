@@ -5,7 +5,7 @@
                 Tkinter UI / Reportlab / Pillow / Pil /odfpy
                 Import de .VCF et exports TXT/ODT/ODS/PDF
                 Repérage auto des doublons, tri manuel 
-                Prévisualisation, modifiction des contacts
+                Prévisualisation, modifiction des contactspyinstaller
                 Édition de 3 types de livrets PDF 
                 Séction aide & mode sombre 
                 klm novembre 2025
@@ -1033,7 +1033,7 @@ class LivretWindow(tk.Toplevel):
         except Exception as e:
             messagebox.showerror("Erreur écriture PDF", str(e))
 
-    def _generate_fold_2(self, c, pw, ph, contacts_enabled):
+    def _generate_fold_2(self, c, pw, ph, contacts_enabled): # Pliage 2 plis
         """
         Pliage 2 : Couverture séparée + imposition pour les pages de contenu
         """
@@ -1141,7 +1141,7 @@ class LivretWindow(tk.Toplevel):
             
             c.showPage()
 
-    def _generate_fold_4(self, c, pw, ph, contacts_enabled):
+    def _generate_fold_4(self, c, pw, ph, contacts_enabled): # pliage 4 plis
         """Pliage 4 : système modulaire avec ajout de feuilles selon besoin
         - 1 A4 = Couv(1) + 4ème(dernier) + 6 pages de contenu
         - Demi-A4 supplémentaire = 4 pages de contenu (moitié gauche seulement)
@@ -1291,7 +1291,7 @@ class LivretWindow(tk.Toplevel):
                 if self.logo_path and os.path.exists(self.logo_path):
                     logo_size = 15 * mm
                     logo_x = cx - (logo_size / 2.0)
-                    logo_y = cy - 10
+                    logo_y = cy - 50
                     cobj.drawImage(self.logo_path, logo_x, logo_y, 
                                   width=logo_size, height=logo_size,
                                   preserveAspectRatio=True, mask='auto')
@@ -1398,7 +1398,7 @@ class LivretWindow(tk.Toplevel):
 
 
 
-    def _generate_fold_8(self, c, pw, ph, contacts_enabled):
+    def _generate_fold_8(self, c, pw, ph, contacts_enabled): # pliage 8 plis
         """Pliage 8 : 16 pages par feuille A4 paysage (8 zones : 4×2)
         RECTO ligne1: 5,12,9,8 (180°) / ligne2: 4,13,16,1 (0°)
         VERSO ligne1: 7,10,11,6 (180°) / ligne2: 2,15,14,3 (0°)
@@ -1459,7 +1459,7 @@ class LivretWindow(tk.Toplevel):
                     if self.logo_path and os.path.exists(self.logo_path):
                         logo_size = 12 * mm
                         logo_x = cx - (logo_size / 2.0)
-                        logo_y = cy - 8
+                        logo_y = cy - 25
                         cobj.drawImage(self.logo_path, logo_x, logo_y, 
                                       width=logo_size, height=logo_size,
                                       preserveAspectRatio=True, mask='auto')
