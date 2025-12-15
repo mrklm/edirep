@@ -19,8 +19,8 @@ On importe un fichier `.VCF` depuis un téléphone, on l'édite si besoin et on 
 
 ### Applications standalone (recommandé pour utilisateurs)
 
-- **macOS** : [Edirep-macOS-v3.8.1.zip](https://github.com/mrklm/codes/releases)
-- **Ubuntu/Linux** : [Edirep-Ubuntu-v3.8.1.zip](https://github.com/mrklm/codes/releases)
+- **macOS** : [Edirep-macOS-v3.8.1.zip](https://github.com/mrklm/edirep/releases)
+- **Ubuntu/Linux** : [Edirep-Ubuntu-v3.8.1.zip](https://github.com/mrklm/edirep/releases)
 - **Windows** : _(à venir)_
 
 #### Instructions Ubuntu/Linux après téléchargement :
@@ -54,7 +54,7 @@ Téléchargez la version correspondante à votre système d'exploitation :
 
 1. **Clonez ce dépôt** :
 ```bash
-   git clone https://github.com/mrklm/codes.git
+   git clone https://github.com/mrklm/edirep.git
    cd codes
 ```
 
