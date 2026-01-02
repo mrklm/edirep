@@ -7,13 +7,20 @@ et ce projet adhère au [Versioning Sémantique](https://semver.org/lang/fr/).
 
 ---
 
+## [3.10] - 2026-01-02
 
+### Ajouté
 
-## [3.9] - 2026-01-01
+ - Fonction export des VCF
+ - Ajout des adresses dans les repertoires (.TXT,.ODS,.ODT & .PDF)
+ - Lignes vides ajoutées dans les repertoires au dessus et en dessous des adresses
+   pour une meilleurs visibilité.
+
+## [3.9] - 2026-01-02
 
 ### Corrigé
 
-- Correction d'un bug: le titre (ou nom) s'affiche à nouveau sur les couvertures des 
+- Le titre (ou nom) s'affiche à nouveau sur les couvertures des 
   versions 4 & 8 plis.
 
 ## [3.8.1] - 2025-12-13

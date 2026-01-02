@@ -2,10 +2,11 @@
 
 Edirep sert à éditer votre répertoire téléphonique sous différentes formes :
 
-1. **En fichier texte brut** → `.TXT`
-2. **En fichier traitement de texte** → `.ODT`
-3. **En fichier Tableur** → `.ODS`
-4. **Sous différentes formes de livrets à imprimer** → `.PDF`
+1. **En fichier Virtual Card Format** → `.VCF`
+2. **En fichier texte brut** → `.TXT`
+3. **En fichier traitement de texte** → `.ODT`
+4. **En fichier Tableur** → `.ODS`
+5. **Sous différentes formes de livrets à imprimer** → `.PDF`
 
 ---
 
@@ -72,6 +73,7 @@ Si vous souhaitez modifier le nom ou le numéro d'un contact, cliquez sur le bou
 
 Une fois édité, vous pouvez exporter votre répertoire dans le format souhaité :
 
+- **CVF** : Fichier Virtual Card Format
 - **TXT** : Fichier texte brut
 - **ODT** : Document traitement de texte
 - **ODS** : Tableur

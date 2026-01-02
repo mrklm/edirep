@@ -3,7 +3,7 @@
 """
                 Edirep — Éditeur de répertoire téléphonique
                 Tkinter UI / Reportlab / Pillow / Pil /odfpy
-                Import de .VCF et exports TXT/ODT/ODS/PDF
+                Import de .VCF et exports VCF/TXT/ODT/ODS/PDF
                 Repérage auto des doublons, tri manuel 
                 Prévisualisation, modifiction des contactspyinstaller
                 Édition de 3 types de livrets PDF 

@@ -8,10 +8,11 @@ Edirep sert à éditer votre répertoire téléphonique sous différentes formes
 
 On importe un fichier `.VCF` depuis un téléphone, on l'édite si besoin et on l'exporte :
 
-1. **En fichier texte brut** → `.TXT`
-2. **En fichier traitement de texte** → `.ODT`
-3. **En fichier Tableur** → `.ODS`
-4. **Sous différentes formes de livrets à imprimer** → `.PDF`
+1. **En fichier Virtual Card Format** → `.VCF`
+2. **En fichier texte brut** → `.TXT`
+3. **En fichier traitement de texte** → `.ODT`
+4. **En fichier Tableur** → `.ODS`
+5. **Sous différentes formes de livrets à imprimer** → `.PDF`
 
 ---
 
