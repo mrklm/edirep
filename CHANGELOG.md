@@ -12,6 +12,7 @@ et ce projet adhère au [Versioning Sémantique](https://semver.org/lang/fr/).
 ## [3.9] - 2026-01-01
 
 ### Corrigé
+
 - Correction d'un bug: le titre (ou nom) s'affiche à nouveau sur les couvertures des 
   versions 4 & 8 plis.
 
