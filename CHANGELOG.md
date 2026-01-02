@@ -7,7 +7,12 @@ et ce projet adhère au [Versioning Sémantique](https://semver.org/lang/fr/).
 
 ---
 
-## [3.8.1] - 2024-12-13
+
+
+## [3.9] - 2026-01-01
+
+- Correction d'un bug: le titre (ou nom) s'affiche à nouveau sur les couvertures des 
+  versions 4 & 8 plis.
 
 ### Corrigé
 
@@ -16,14 +21,14 @@ et ce projet adhère au [Versioning Sémantique](https://semver.org/lang/fr/).
 - Affichage du Logo sous Ubuntu  
 - Placement logo dans les livret 4 & 8 plis
 
-## [3.8.0] - 2024-12-13
+## [3.8.0] - 2025-12-13
 
 ### Ajouté
 
 - Création d'un texte d'aide qui s'affiche dans la partie "visualisation" au demarage 
 - Bouton pour afficher l'aide en mirroir du bouton "mode sombre"
 
-## [3.7.0] - 2024-12-13
+## [3.7.0] - 2025-12-13
 
 ### Ajouté
 - Changement du logo et modification de son emplacement
@@ -32,7 +37,7 @@ et ce projet adhère au [Versioning Sémantique](https://semver.org/lang/fr/).
 
 - ajustement des titres 
 
-## [3.6.2] - 2024-12-13
+## [3.6.2] - 2025-12-13
 
 ### Ajouté
 - Numérotation des pages alternée gauche/droite dans les PDFs (pages paires à gauche, impaires à droite)
@@ -46,7 +51,7 @@ et ce projet adhère au [Versioning Sémantique](https://semver.org/lang/fr/).
 
 ---
 
-## [3.6.1] - 2024-12-12
+## [3.6.1] - 2025-12-12
 
 ### Corrigé
 - Export ODS : correction de l'attribut `numbercolumnsspanned` (était en camelCase)
@@ -54,7 +59,7 @@ et ce projet adhère au [Versioning Sémantique](https://semver.org/lang/fr/).
 
 ---
 
-## [3.6.0] - 2024-12-12
+## [3.6.0] - 2025-12-12
 
 ### Ajouté
 - **Système modulaire pour pliage 4 plis** :
@@ -75,7 +80,7 @@ et ce projet adhère au [Versioning Sémantique](https://semver.org/lang/fr/).
 
 ---
 
-## [3.5.0] - 2024-12-11
+## [3.5.0] - 2025-12-11
 
 ### Ajouté
 - **Pliage 2 plis fonctionnel** avec imposition correcte
