@@ -16,6 +16,15 @@ On importe un fichier `.VCF` depuis un téléphone, on l'édite si besoin et on 
 
 ---
 
+## Aperçu
+
+![Fenêtre aide](screenshots/aide.png)
+![Fenêtre edition](screenshots/edition.png)
+![Fenêtre pdf](screenshots/pdf.png)
+![Fenêtre modesombre](screenshots/modesombre.png)
+
+---
+
 ## 📥 Téléchargement
 
 ### Applications standalone (recommandé pour utilisateurs)
