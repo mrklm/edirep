@@ -1,8 +1,9 @@
 # EDIREP
 
-![Version](https://img.shields.io/badge/version-3.8.1-blue)
-![License](https://img.shields.io/badge/license-GPL--3.0-green)
-![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux%20%7C%20Windows-lightgrey)
+![Version](https://img.shields.io/github/v/release/mrklm/edirep?label=version)
+![License](https://img.shields.io/github/license/mrklm/edirep)
+![Platform](https://img.shields.io/badge/platform-Linux%20%7C%20macOS%20%7C%20Windows-lightgrey)
+
 
 Edirep sert à éditer votre répertoire téléphonique sous différentes formes.
 
@@ -31,7 +32,7 @@ On importe un fichier `.VCF` depuis un téléphone, on l'édite si besoin et on 
 ### Applications standalone (recommandé pour utilisateurs)
 
 - **macOS** : [Edirep-v3.10.-.macOS.-.x86_64.dmg](https://github.com/mrklm/edirep/releases)
-- **Ubuntu/Linux** : 
+- **Ubuntu/Linux** :[Edirep-v3.10-linux-x86_64.AppImage ](https://github.com/mrklm/edirep/releases)
 - **Windows** : _(à venir)_
 
 #### Instructions Ubuntu/Linux après téléchargement :
@@ -57,7 +58,7 @@ sudo apt install python3-tk
 
 ### Option 1 : Applications standalone (recommandé)
 Téléchargez la version correspondante à votre système d'exploitation :
-- **macOS** : [Edirep-macOS-v3.8.1.zip](#) 
+- **macOS** : [ Edirep-v3.10.-.macOS.-.x86_64.dmg ](#) 
 - **Windows** : _(à venir)_
 - **Linux** : Voir installation depuis les sources ci-dessous
 

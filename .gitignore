@@ -7,7 +7,9 @@ __pycache__/
 *.pyd
 *.egg-info/
 
+# =========================
 # Environnements virtuels
+# =========================
 venv/
 env/
 .venv/
@@ -19,7 +21,9 @@ build/
 dist/
 *.spec
 
+# =========================
 # Releases locales (binaires générés)
+# =========================
 releases/
 
 # =========================
@@ -34,12 +38,20 @@ releases/
 .vscode/
 *.swp
 *.swo
+
 # =========================
 # Mes fichier mémos
 # =========================
 *.pdf
 *.odt
+
 # =========================
 # creation de .ICNS
 # =========================
 *.iconset/
+
+# =========================
+# Build tools (local only)
+# =========================
+/tools/appimagetool
+/tools/appimagetool*

@@ -417,6 +417,22 @@ def imposition_sequence(n_halves):
 class KLMEditor(tk.Tk):
     def __init__(self):
         super().__init__()
+# --- Icône de fenêtre (Linux/macOS) ---
+
+        # --- Icône de fenêtre (Linux/macOS) ---
+        # Note: garder une référence (self._app_icon) sinon Tk peut "perdre" l'icône.
+        try:
+            import tkinter as tk
+            # idéalement un PNG carré (ex: assets/edirep.png), sinon logo.png
+            icon_path = resource_path("assets/edirep.png")
+            if not icon_path.exists():
+                icon_path = resource_path("assets/logo.png")
+
+            _app_icon = tk.PhotoImage(file=str(icon_path))  # garder une ref !
+            root.iconphoto(True, _app_icon)
+        except Exception:
+            pass
+
         self.title(APP_WINDOW_TITLE)
         self.geometry('1000x650')
 
