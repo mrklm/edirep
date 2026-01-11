@@ -1,0 +1,4 @@
+pillow
+reportlab
+odfpy
+pyinstaller

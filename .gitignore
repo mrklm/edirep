@@ -1,19 +1,41 @@
+# =========================
 # Python
+# =========================
 __pycache__/
 *.pyc
 *.pyo
-venv/
-env/
+*.pyd
 *.egg-info/
 
+# Environnements virtuels
+venv/
+env/
+.venv/
+
+# =========================
 # PyInstaller
+# =========================
 build/
 dist/
 *.spec
 
+# Releases locales (binaires générés)
+releases/
+
+# =========================
+# OS
+# =========================
 # macOS
 .DS_Store
 
-# Éditeur
+# =========================
+# Éditeurs / IDE
+# =========================
 .vscode/
 *.swp
+*.swo
+# =========================
+# Mes fichier mémos
+# =========================
+*.pdf
+*.odt

@@ -22,6 +22,17 @@ import textwrap
 from datetime import datetime
 from pathlib import Path
 
+def resource_path(rel_path: str) -> Path:
+    """
+    Résout le chemin d'une ressource :
+    - mode dev : relatif au fichier .py
+    - mode PyInstaller : relatif à _MEIPASS
+    """
+    if hasattr(sys, "_MEIPASS"):
+        return Path(sys._MEIPASS) / rel_path  # type: ignore[attr-defined]
+    return Path(__file__).resolve().parent / rel_path
+
+
 # Optional libraries
 try:
     from odf.opendocument import OpenDocumentText, OpenDocumentSpreadsheet
@@ -420,11 +431,7 @@ class KLMEditor(tk.Tk):
         self.left_contact_font = tk.IntVar(value=12)
 
         # logo placeholders
-        try:
-            base = os.path.dirname(os.path.abspath(__file__))
-        except Exception:
-            base = os.getcwd()
-        self.logo_path = os.path.join(base, "logo.png")
+        self.logo_path = str(resource_path("assets/logo.png"))
         self.logo_normal = None
         self.logo_inverted = None
         self.logo_label = None
@@ -700,7 +707,7 @@ class KLMEditor(tk.Tk):
 
     def load_help_content(self):
         """Charge et formate le contenu du fichier AIDE.md"""
-        help_path = Path(__file__).parent / "AIDE.md"
+        help_path = resource_path("assets/AIDE.md")
         if not help_path.exists():
             return "# Aide non disponible\n\nLe fichier AIDE.md est introuvable."
         

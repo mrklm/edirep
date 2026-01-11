@@ -22,6 +22,7 @@ On importe un fichier `.VCF` depuis un téléphone, on l'édite si besoin et on 
 ![Fenêtre edition](screenshots/edition.png)
 ![Fenêtre pdf](screenshots/pdf.png)
 ![Fenêtre modesombre](screenshots/modesombre.png)
+![Fenêtre Livrets](screenshots/livrets.png)
 
 ---
 
@@ -29,8 +30,8 @@ On importe un fichier `.VCF` depuis un téléphone, on l'édite si besoin et on 
 
 ### Applications standalone (recommandé pour utilisateurs)
 
-- **macOS** : [Edirep-macOS-v3.8.1.zip](https://github.com/mrklm/edirep/releases)
-- **Ubuntu/Linux** : [Edirep-Ubuntu-v3.8.1.zip](https://github.com/mrklm/edirep/releases)
+- **macOS** : [Edirep-v3.10.-.macOS.-.x86_64.dmg](https://github.com/mrklm/edirep/releases)
+- **Ubuntu/Linux** : 
 - **Windows** : _(à venir)_
 
 #### Instructions Ubuntu/Linux après téléchargement :
