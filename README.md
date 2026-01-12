@@ -32,8 +32,8 @@ On importe un fichier `.VCF` depuis un téléphone, on l'édite si besoin et on 
 ### Applications standalone (recommandé pour utilisateurs)
 
 - **macOS** : [Edirep-v3.10.-.macOS.-.x86_64.dmg](https://github.com/mrklm/edirep/releases)
-- **Ubuntu/Linux** :[Edirep-v3.10-linux-x86_64.AppImage ](https://github.com/mrklm/edirep/releases)
-- **Windows** : _(à venir)_
+- **Ubuntu/Linux** :[Edirep-v3.10-linux-x86_64.AppImage](https://github.com/mrklm/edirep/releases)
+- **Windows** : [Edirep-v3.10-windows-x86_64.zip](https://github.com/mrklm/edirep/releases)
 
 #### Instructions Ubuntu/Linux après téléchargement :
 
