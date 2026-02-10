@@ -158,7 +158,6 @@ Le partage des connaissances et des outils est essentiel pour une société num�
 
 ## 📬 Contact
 
-Pour toute question ou demande d'autorisation (notamment pour un usage commercial), vous pouvez me contacter à l'adresse suivante :
 
 **clementmorel@free.fr**
 
