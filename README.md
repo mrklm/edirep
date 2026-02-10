@@ -90,6 +90,30 @@ Téléchargez la version correspondante à votre système d'exploitation :
 ```bash
    python3 edirep.py
 ```
+### AppImage (Linux)
+
+L’AppImage nécessite **FUSE** pour être exécutée.  
+Sur certaines distributions, FUSE n’est pas installé par défaut.
+
+Si l’AppImage ne se lance pas (erreur liée à `libfuse.so.2`), installez le support FUSE
+adapté à votre distribution, puis relancez l’application.
+
+```bash
+# Debian / Ubuntu / dérivés
+sudo apt install libfuse2
+
+# Fedora
+sudo dnf install fuse fuse-libs
+
+# Arch / Manjaro
+sudo pacman -S fuse2
+```
+
+Alternative sans FUSE :
+```bash
+./Edirep-*.AppImage --appimage-extract
+./squashfs-root/AppRun
+```
 
 ## 📜 Licence
 
