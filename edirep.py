@@ -61,7 +61,7 @@ MIN_SPACES = 3
 
 APP_WINDOW_TITLE = "Edirep"
 MAIN_HEADER_TEXT = "Éditeur de répertoire téléphonique"
-STATUS_DEFAULT_TEXT = "KLM - Edirep - v3.10"
+STATUS_DEFAULT_TEXT = "KLM - Edirep - v3.11"
 
 BUTTON_LABELS = {
     'import_vcf': "Importer VCF",
@@ -80,7 +80,7 @@ PDF_DEFAULTS = {
     'date_text': "Édité le {}",
     'cover_line1': '',
     'cover_line2': '',
-    'back_line1': 'Édité avec Edirep v.3.10',
+    'back_line1': 'Édité avec Edirep v.3.11',
     'back_line2': '',
 }
 
@@ -428,8 +428,8 @@ class KLMEditor(tk.Tk):
             if not icon_path.exists():
                 icon_path = resource_path("assets/logo.png")
 
-            _app_icon = tk.PhotoImage(file=str(icon_path))  # garder une ref !
-            root.iconphoto(True, _app_icon)
+            self._app_icon = tk.PhotoImage(file=str(icon_path))  # garder une ref !
+            self.iconphoto(True, self._app_icon)
         except Exception:
             pass
 

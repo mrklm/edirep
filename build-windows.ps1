@@ -1,10 +1,10 @@
 <# build-windows.ps1 - Edirep (Windows) portable build script (ASCII only)
 
 Usage:
-  .\build-windows.ps1 -Version 3.10.0
-  .\build-windows.ps1 -Version 3.10.0 -Arch x86_64
-  .\build-windows.ps1 -Version 3.10.0 -AppsDir "$env:USERPROFILE\Apps"
-  .\build-windows.ps1 -Version 3.10.0 -KeepBuildDirs
+  .\build-windows.ps1 -Version 3.11
+  .\build-windows.ps1 -Version 3.11 -Arch x86_64
+  .\build-windows.ps1 -Version 3.11 -AppsDir "$env:USERPROFILE\Apps"
+  .\build-windows.ps1 -Version 3.11 -KeepBuildDirs
 
 Notes:
 - ASCII only: no accents, no emojis, no fancy dashes, no ellipsis.

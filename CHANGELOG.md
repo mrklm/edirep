@@ -7,6 +7,17 @@ et ce projet adhère au [Versioning Sémantique](https://semver.org/lang/fr/).
 
 ---
 
+## [3.11] - 2026-08-28
+
+### Corrigé
+
+- Correction de l'icône de fenêtre sous macOS/Tkinter.
+
+### Validé
+
+- Vérification du lancement d'Edirep sur macOS Sonoma 14.8.7.
+- Vérification de la génération du paquet macOS `.app` et `.dmg` sur architecture x86_64.
+
 ## [3.10] - 2026-01-02
 
 ### Ajouté
