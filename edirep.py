@@ -64,21 +64,31 @@ MAIN_HEADER_TEXT = "Éditeur de répertoire téléphonique"
 STATUS_DEFAULT_TEXT = "KLM - Edirep - v3.12"
 PROJECT_URL = "https://github.com/mrklm/edirep"
 
-def draw_project_link(cobj, center_x, baseline_y, font_size=9, icon_size=10, gap=3):
+def draw_project_link(cobj, center_x, baseline_y, font_size=9, icon_size=None, gap=3):
+    if icon_size is None:
+        icon_size = font_size
+
     cobj.setFont("Helvetica", font_size)
     text_width = cobj.stringWidth(PROJECT_URL, "Helvetica", font_size)
-    total_width = icon_size + gap + text_width
+    icon_path = resource_path("assets/ico_Github.png")
+    has_icon = icon_path.exists()
+    total_width = text_width + (icon_size + gap if has_icon else 0)
     icon_x = center_x - (total_width / 2.0)
-    icon_y = baseline_y - (icon_size * 0.78)
+    text_x = icon_x
+
+    if has_icon:
+        icon_y = baseline_y - (icon_size * 0.25)
+        try:
+            cobj.drawImage(str(icon_path), icon_x, icon_y,
+                           width=icon_size, height=icon_size,
+                           preserveAspectRatio=True, mask='auto')
+            text_x = icon_x + icon_size + gap
+        except Exception:
+            text_x = center_x - (text_width / 2.0)
 
     cobj.setFillColorRGB(0, 0, 0)
-    cobj.roundRect(icon_x, icon_y, icon_size, icon_size, icon_size * 0.2, stroke=0, fill=1)
-    cobj.setFillColorRGB(1, 1, 1)
-    cobj.setFont("Helvetica-Bold", max(font_size * 0.55, 3.5))
-    cobj.drawCentredString(icon_x + icon_size / 2.0, icon_y + icon_size * 0.28, "GH")
-    cobj.setFillColorRGB(0, 0, 0)
     cobj.setFont("Helvetica", font_size)
-    cobj.drawString(icon_x + icon_size + gap, baseline_y, PROJECT_URL)
+    cobj.drawString(text_x, baseline_y, PROJECT_URL)
 
 BUTTON_LABELS = {
     'import_vcf': "Importer VCF",
@@ -1376,7 +1386,7 @@ class LivretWindow(tk.Toplevel):
                            preserveAspectRatio=True, mask='auto')
         except Exception:
             pass
-        draw_project_link(c, left_center_x, ph * 0.49, font_size=9, icon_size=10, gap=3)
+        draw_project_link(c, left_center_x, ph * 0.49, font_size=9, icon_size=9, gap=3)
         c.setFont("Helvetica-Bold", 12)
         c.drawCentredString(left_center_x, ph * 0.45, COVER_TITLES.get('back_line2', ''))
         
@@ -1614,7 +1624,7 @@ class LivretWindow(tk.Toplevel):
             except Exception:
                 pass
 
-            draw_project_link(cobj, cx, cy - 60, font_size=6, icon_size=7, gap=2)
+            draw_project_link(cobj, cx, cy - 60, font_size=6, icon_size=6, gap=2)
             cobj.setFont("Helvetica-Bold", 8)
             cobj.drawCentredString(cx, cy - 72, COVER_TITLES.get('back_line2', ''))
             
@@ -1783,7 +1793,7 @@ class LivretWindow(tk.Toplevel):
                 except Exception:
                     pass
 
-                draw_project_link(cobj, cx, cy - 38, font_size=4.8, icon_size=5.8, gap=1.5)
+                draw_project_link(cobj, cx, cy - 38, font_size=4.8, icon_size=4.8, gap=1.5)
                 cobj.setFont("Helvetica-Bold", 7)
                 cobj.drawCentredString(cx, cy - 48, COVER_TITLES.get('back_line2', ''))
             else:
