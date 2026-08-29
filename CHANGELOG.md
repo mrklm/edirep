@@ -7,6 +7,12 @@ et ce projet adhère au [Versioning Sémantique](https://semver.org/lang/fr/).
 
 ---
 
+## [3.12] - 2026-08-29
+
+### Ajouté
+
+- Ajout de l'adresse du projet GitHub et d'une petite icône sur la 4ème de couverture des livrets PDF.
+
 ## [3.11] - 2026-08-28
 
 ### Corrigé

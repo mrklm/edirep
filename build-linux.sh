@@ -4,7 +4,7 @@ set -euo pipefail
 # =========================
 # Edirep — Build Linux + AppImage + tar.gz + SHA256
 # Sorties: ./releases/
-# Usage : ./build-linux.sh 3.11
+# Usage : ./build-linux.sh 3.12
 # =========================
 
 APP_NAME="Edirep"
@@ -24,7 +24,7 @@ fi
 # -------------------------
 if [[ $# -lt 1 ]]; then
   echo "❌ Version manquante."
-  echo "👉 Usage : ./build-linux.sh 3.11"
+  echo "👉 Usage : ./build-linux.sh 3.12"
   exit 1
 fi
 VERSION="$1"
